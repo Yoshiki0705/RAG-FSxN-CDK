@@ -28,3 +28,4 @@ new FSxNRagStack(app, `${devConfig.stackName}FSxNRagStack`, {
   },
   crossRegionReferences: true,
 });
+cdk.Tags.of(app).add("cost", "netapp2");

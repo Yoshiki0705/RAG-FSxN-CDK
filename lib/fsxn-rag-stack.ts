@@ -106,7 +106,7 @@ export class FSxNRagStack extends cdk.Stack {
       tag: devConfig.chatAppConfig.tag,
       fsx: fsx,
     });
-
+    /*
     new ChatApp(this, "ChatApp", {
       ...devConfig.chatAppConfig,
       allowedIps: devConfig.allowedIps,
@@ -116,6 +116,7 @@ export class FSxNRagStack extends cdk.Stack {
       domainName: devConfig.networkConfig.appDomainName,
       certificate: network.certificate,
     });
+    */
 
     NagSuppressions.addResourceSuppressions(
       embeddingServerRole,
