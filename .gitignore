@@ -1,0 +1,81 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Next.js
+.next/
+out/
+
+# Production
+/build
+
+# Misc
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local env files
+.env*.local
+
+# Vercel
+.vercel
+
+# CDK
+cdk.out/
+cdk.context.json
+.cdk.staging
+
+# Logs (only in development/logs/)
+development/logs/*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# IDE
+.vscode/
+.idea/
+
+# AWS credentials
+.aws/credentials
+.aws/config
+
+# Kiro IDE設定（リポジトリから除外）
+.kiro/
+
+# 機密情報
+*.pem
+*.key
+*.p12
+*.pfx
+*.env
+!.env.template
+!.env.example
+
+# 実行ログ・一時ファイル
+logs/
+temp/
+*.log
+
+# 環境固有情報（非公開）
+development/
+!development/README.md
+!development/scripts/templates/
+
+# 公開対象は明示的に追加
+!templates/
+!docs/README.md
+!docs/ARCHITECTURE.md
+!docs/DEPLOYMENT_GUIDE.md
+!docs/CONFIGURATION.md
+!LICENSE
+!CONTRIBUTING.md

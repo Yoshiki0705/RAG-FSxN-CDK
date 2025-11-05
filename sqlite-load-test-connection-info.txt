@@ -1,0 +1,149 @@
+# SQLite UNIQUE制約エラー負荷試験 - 接続情報
+
+## 作成されたリソース
+
+### EC2インスタンス
+- インスタンスID: i-04891cb1502ba76de
+- パブリックIP: 13.115.75.178
+- プライベートIP: 10.21.0.125
+- インスタンスタイプ: t3.medium
+- OS: Amazon Linux 2023
+
+### FSx for ONTAP ボリューム
+- ボリュームID: fsvol-0413e32de284cd0e4
+- ボリューム名: sqlite_load_test_volume
+- ジャンクションパス: /sqlite-load-test
+- サイズ: 10GB
+- SVM: svm-01b48eb910be1c588
+
+### セキュリティグループ
+- グループID: sg-0ce3f65c0ec162100
+- SSH (22): 160.86.247.41/32 からのみアクセス許可
+
+## SSH接続方法
+
+```bash
+ssh -i ~/.ssh/fujiwara-2025.pem ec2-user@13.115.75.178
+```
+
+## 負荷試験の実行手順
+
+### 1. SSH接続後の初期確認
+
+```bash
+# 初期化状況の確認
+cat /opt/sqlite-load-test/init_complete.log
+
+# システム情報の確認
+htop
+df -h
+```
+
+### 2. FSx for ONTAPボリュームのマウント
+
+```bash
+# FSxボリュームのマウント
+sudo /opt/sqlite-load-test/mount_fsx.sh
+
+# マウント状況の確認
+df -h /mnt/fsx-sqlite
+ls -la /mnt/fsx-sqlite
+```
+
+### 3. 簡単な負荷試験の実行
+
+```bash
+# 軽い負荷試験（10スレッド、1000操作）
+/opt/sqlite-load-test/run_quick_test.sh
+```
+
+### 4. カスタム負荷試験の実行
+
+```bash
+# 中程度の負荷試験（20スレッド、5000操作）
+python3 /opt/sqlite-load-test/unique_constraint_test.py /mnt/fsx-sqlite/medium_test.db 20 5000
+
+# 高負荷試験（50スレッド、10000操作）
+python3 /opt/sqlite-load-test/unique_constraint_test.py /mnt/fsx-sqlite/heavy_test.db 50 10000
+
+# 極端な負荷試験（100スレッド、20000操作）
+python3 /opt/sqlite-load-test/unique_constraint_test.py /mnt/fsx-sqlite/extreme_test.db 100 20000
+```
+
+## 負荷試験の目的
+
+この負荷試験は以下を検証します：
+
+1. **UNIQUE制約エラーの発生頻度**
+   - 並行書き込み時のUNIQUE制約違反の発生パターン
+   - エラー率とスループットの関係
+
+2. **FSx for ONTAPの性能**
+   - NFS経由でのSQLiteデータベース操作性能
+   - 並行アクセス時のI/O性能
+
+3. **SQLite WALモードの効果**
+   - Write-Ahead Loggingによる並行性の向上
+   - ロック競合の軽減効果
+
+## 結果の確認
+
+```bash
+# 結果ファイルの確認
+ls -la /mnt/fsx-sqlite/*.results.txt
+cat /mnt/fsx-sqlite/quick_test.db.results.txt
+
+# データベースサイズの確認
+ls -lh /mnt/fsx-sqlite/*.db
+
+# システムリソース使用状況
+htop
+iotop
+```
+
+## トラブルシューティング
+
+### FSxマウントエラー
+```bash
+# NFSサービスの確認
+sudo systemctl status nfs-utils
+
+# マウント再試行
+sudo umount /mnt/fsx-sqlite
+sudo /opt/sqlite-load-test/mount_fsx.sh
+```
+
+### 権限エラー
+```bash
+# ディレクトリ権限の確認・修正
+sudo chmod 777 /mnt/fsx-sqlite
+sudo chown ec2-user:ec2-user /mnt/fsx-sqlite
+```
+
+### Python依存関係エラー
+```bash
+# 依存関係の再インストール
+sudo pip3 install sqlite3 psutil boto3
+```
+
+## 期待される結果
+
+- **成功率**: 60-80% (UNIQUE制約エラーが意図的に発生)
+- **UNIQUE制約エラー率**: 20-40%
+- **スループット**: 100-500 ops/sec (負荷とハードウェアに依存)
+- **レスポンス時間**: 数ミリ秒～数十ミリ秒
+
+## 注意事項
+
+- この負荷試験は意図的にUNIQUE制約エラーを発生させます
+- 実際のプロダクション環境では使用しないでください
+- 試験完了後はインスタンスを停止/削除してください
+- 機密データは使用しないでください
+
+## 次のステップ
+
+1. 基本的な負荷試験を実行
+2. 結果を分析してパフォーマンス特性を把握
+3. 異なるパラメータで複数回実行
+4. FSx for ONTAPの性能特性をドキュメント化
+5. 必要に応じて追加の最適化を実施

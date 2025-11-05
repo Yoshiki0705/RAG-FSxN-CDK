@@ -1,0 +1,21 @@
+{
+  "computeEnvironmentName": "sqlite-embedding-compute-env",
+  "type": "MANAGED",
+  "state": "ENABLED",
+  "serviceRole": "arn:aws:iam::178625946981:role/AWSBatchServiceRole",
+  "computeResources": {
+    "type": "EC2",
+    "minvCpus": 0,
+    "maxvCpus": 20,
+    "desiredvCpus": 0,
+    "instanceTypes": ["m5.large", "m5.xlarge"],
+    "subnets": ["subnet-0a84a16a1641e970f", "subnet-0c4599b4863ff4d33"],
+    "securityGroupIds": ["sg-044d9de3f2eb78ffb"],
+    "instanceRole": "arn:aws:iam::178625946981:instance-profile/ecsInstanceRole",
+    "tags": {
+      "Project": "sqlite-embedding-batch",
+      "Environment": "dev",
+      "Purpose": "SQLite-Load-Test-Embedding"
+    }
+  }
+}

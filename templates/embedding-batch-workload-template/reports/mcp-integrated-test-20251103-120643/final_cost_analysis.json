@@ -1,0 +1,19 @@
+{
+    "analysis_timestamp": "2025-11-03T03:06:51Z",
+    "initial_cost": 8.80,
+    "final_cost": 14.30,
+    "test_cost": 5.50,
+    "cost_limit": 25.00,
+    "cost_efficiency": {
+        "within_budget": true,
+        "utilization_rate": 57.00
+    },
+    "optimization_summary": {
+        "potential_savings": 3.30,
+        "recommendations": [
+            "Spot インスタンスの使用で最大70%削減可能",
+            "オートスケーリング設定でアイドル時間を最小化",
+            "予測可能なワークロード用のリザーブドインスタンスを検討"
+        ]
+    }
+}

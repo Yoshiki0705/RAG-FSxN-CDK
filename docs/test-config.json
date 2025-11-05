@@ -1,0 +1,6 @@
+{
+  "enablePerformanceTest": true,
+  "enableContentValidation": true,
+  "minContentLength": 100,
+  "maxExecutionTime": 5000
+}

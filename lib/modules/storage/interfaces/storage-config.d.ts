@@ -1,0 +1,409 @@
+/**
+ * ストレージモジュール設定インターフェース
+ *
+ * 機能:
+ * - S3・FSx・EFS設定の型定義
+ * - バックアップ・ライフサイクル・レプリケーション設定
+ * - パフォーマンス・セキュリティ設定
+ */
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as efs from 'aws-cdk-lib/aws-efs';
+/**
+ * S3設定
+ */
+export interface S3Config {
+    /** 暗号化設定 */
+    readonly encryption: S3EncryptionConfig;
+    /** バージョニング有効化 */
+    readonly versioning: boolean;
+    /** ライフサイクル設定 */
+    readonly lifecycle: S3LifecycleConfig;
+    /** クロスリージョンレプリケーション */
+    readonly crossRegionReplication?: S3ReplicationConfig;
+    /** アクセスログ */
+    readonly accessLogging?: S3AccessLoggingConfig;
+    /** 通知設定 */
+    readonly notifications?: S3NotificationConfig;
+    /** パブリックアクセス設定 */
+    readonly publicAccess?: S3PublicAccessConfig;
+    /** カスタムバケット */
+    readonly customBuckets?: S3CustomBucket[];
+}
+/**
+ * S3暗号化設定
+ */
+export interface S3EncryptionConfig {
+    /** 暗号化有効化 */
+    readonly enabled: boolean;
+    /** KMS管理暗号化 */
+    readonly kmsManaged: boolean;
+    /** カスタムKMSキーARN */
+    readonly customKmsKeyArn?: string;
+    /** バケットキー使用 */
+    readonly bucketKeyEnabled?: boolean;
+}
+/**
+ * S3ライフサイクル設定
+ */
+export interface S3LifecycleConfig {
+    /** ライフサイクル有効化 */
+    readonly enabled: boolean;
+    /** IA移行日数 */
+    readonly transitionToIA?: number;
+    /** Glacier移行日数 */
+    readonly transitionToGlacier?: number;
+    /** Deep Archive移行日数 */
+    readonly transitionToDeepArchive?: number;
+    /** 削除日数 */
+    readonly deleteAfter?: number;
+    /** 不完全マルチパートアップロード削除日数 */
+    readonly abortIncompleteMultipartUpload?: number;
+    /** カスタムルール */
+    readonly customRules?: S3LifecycleRule[];
+}
+/**
+ * S3ライフサイクルルール
+ */
+export interface S3LifecycleRule {
+    /** ルール名 */
+    readonly ruleName: string;
+    /** プレフィックス */
+    readonly prefix?: string;
+    /** タグフィルター */
+    readonly tagFilters?: Record<string, string>;
+    /** 移行設定 */
+    readonly transitions: S3LifecycleTransition[];
+    /** 削除設定 */
+    readonly expiration?: number;
+}
+/**
+ * S3ライフサイクル移行設定
+ */
+export interface S3LifecycleTransition {
+    /** 移行日数 */
+    readonly days: number;
+    /** ストレージクラス */
+    readonly storageClass: s3.StorageClass;
+}
+/**
+ * S3レプリケーション設定
+ */
+export interface S3ReplicationConfig {
+    /** レプリケーション有効化 */
+    readonly enabled: boolean;
+    /** 送信先リージョン */
+    readonly destinationRegion: string;
+    /** 送信先バケット名 */
+    readonly destinationBucketName?: string;
+    /** レプリケーションロールARN */
+    readonly replicationRoleArn?: string;
+    /** プレフィックスフィルター */
+    readonly prefixFilter?: string;
+    /** ストレージクラス */
+    readonly storageClass?: s3.StorageClass;
+}
+/**
+ * S3アクセスログ設定
+ */
+export interface S3AccessLoggingConfig {
+    /** アクセスログ有効化 */
+    readonly enabled: boolean;
+    /** ログバケット名 */
+    readonly logBucketName?: string;
+    /** ログプレフィックス */
+    readonly logPrefix?: string;
+}
+/**
+ * S3通知設定
+ */
+export interface S3NotificationConfig {
+    /** Lambda通知 */
+    readonly lambda?: S3LambdaNotification[];
+    /** SNS通知 */
+    readonly sns?: S3SnsNotification[];
+    /** SQS通知 */
+    readonly sqs?: S3SqsNotification[];
+}
+/**
+ * S3 Lambda通知設定
+ */
+export interface S3LambdaNotification {
+    /** Lambda関数ARN */
+    readonly functionArn: string;
+    /** イベントタイプ */
+    readonly events: s3.EventType[];
+    /** フィルター */
+    readonly filters?: s3.NotificationKeyFilter[];
+}
+/**
+ * S3 SNS通知設定
+ */
+export interface S3SnsNotification {
+    /** SNSトピックARN */
+    readonly topicArn: string;
+    /** イベントタイプ */
+    readonly events: s3.EventType[];
+    /** フィルター */
+    readonly filters?: s3.NotificationKeyFilter[];
+}
+/**
+ * S3 SQS通知設定
+ */
+export interface S3SqsNotification {
+    /** SQSキューARN */
+    readonly queueArn: string;
+    /** イベントタイプ */
+    readonly events: s3.EventType[];
+    /** フィルター */
+    readonly filters?: s3.NotificationKeyFilter[];
+}
+/**
+ * S3パブリックアクセス設定
+ */
+export interface S3PublicAccessConfig {
+    /** パブリック読み取りアクセス拒否 */
+    readonly blockPublicRead: boolean;
+    /** パブリック書き込みアクセス拒否 */
+    readonly blockPublicWrite: boolean;
+    /** パブリックACL拒否 */
+    readonly blockPublicAcls: boolean;
+    /** パブリックポリシー拒否 */
+    readonly restrictPublicBuckets: boolean;
+}
+/**
+ * S3カスタムバケット
+ */
+export interface S3CustomBucket {
+    /** バケット名 */
+    readonly bucketName: string;
+    /** 用途 */
+    readonly purpose: string;
+    /** 暗号化設定 */
+    readonly encryption?: S3EncryptionConfig;
+    /** バージョニング */
+    readonly versioning?: boolean;
+    /** ライフサイクル設定 */
+    readonly lifecycle?: S3LifecycleConfig;
+    /** CORS設定 */
+    readonly cors?: s3.CorsRule[];
+}
+/**
+ * FSx設定
+ */
+export interface FsxConfig {
+    /** FSx有効化 */
+    readonly enabled: boolean;
+    /** ファイルシステムタイプ */
+    readonly fileSystemType: 'LUSTRE' | 'WINDOWS' | 'ONTAP' | 'OPENZFS';
+    /** ストレージ容量（GB） */
+    readonly storageCapacity: number;
+    /** スループット容量（MB/s） */
+    readonly throughputCapacity: number;
+    /** マルチAZ展開 */
+    readonly multiAz?: boolean;
+    /** バックアップ設定 */
+    readonly backup?: FsxBackupConfig;
+    /** ONTAP固有設定 */
+    readonly ontapConfig?: FsxOntapConfig;
+    /** Lustre固有設定 */
+    readonly lustreConfig?: FsxLustreConfig;
+}
+/**
+ * FSxバックアップ設定
+ */
+export interface FsxBackupConfig {
+    /** 自動バックアップ有効化 */
+    readonly automaticBackup: boolean;
+    /** バックアップ保持期間（日） */
+    readonly retentionDays: number;
+    /** バックアップウィンドウ */
+    readonly backupWindow?: string;
+    /** メンテナンスウィンドウ */
+    readonly maintenanceWindow?: string;
+}
+/**
+ * FSx ONTAP設定
+ */
+export interface FsxOntapConfig {
+    /** デプロイメントタイプ */
+    readonly deploymentType: 'MULTI_AZ_1' | 'SINGLE_AZ_1';
+    /** 優先サブネット */
+    readonly preferredSubnetId?: string;
+    /** ルートボリューム設定 */
+    readonly rootVolumeConfig?: FsxOntapVolumeConfig;
+    /** SVM設定 */
+    readonly svmConfig?: FsxOntapSvmConfig[];
+}
+/**
+ * FSx ONTAPボリューム設定
+ */
+export interface FsxOntapVolumeConfig {
+    /** ボリューム名 */
+    readonly volumeName: string;
+    /** サイズ（GB） */
+    readonly sizeInGb: number;
+    /** セキュリティスタイル */
+    readonly securityStyle: 'UNIX' | 'NTFS' | 'MIXED';
+    /** ストレージ効率化 */
+    readonly storageEfficiencyEnabled?: boolean;
+}
+/**
+ * FSx ONTAP SVM設定
+ */
+export interface FsxOntapSvmConfig {
+    /** SVM名 */
+    readonly svmName: string;
+    /** ルートボリューム設定 */
+    readonly rootVolumeConfig: FsxOntapVolumeConfig;
+    /** Active Directory設定 */
+    readonly activeDirectoryConfig?: FsxActiveDirectoryConfig;
+}
+/**
+ * FSx Active Directory設定
+ */
+export interface FsxActiveDirectoryConfig {
+    /** ドメイン名 */
+    readonly domainName: string;
+    /** DNS IP */
+    readonly dnsIps: string[];
+    /** 管理者ユーザー名 */
+    readonly adminUsername: string;
+    /** 管理者パスワード */
+    readonly adminPassword: string;
+}
+/**
+ * FSx Lustre設定
+ */
+export interface FsxLustreConfig {
+    /** デプロイメントタイプ */
+    readonly deploymentType: 'SCRATCH_1' | 'SCRATCH_2' | 'PERSISTENT_1' | 'PERSISTENT_2';
+    /** インポートパス */
+    readonly importPath?: string;
+    /** エクスポートパス */
+    readonly exportPath?: string;
+    /** 週次メンテナンス開始時刻 */
+    readonly weeklyMaintenanceStartTime?: string;
+}
+/**
+ * EFS設定
+ */
+export interface EfsConfig {
+    /** EFS有効化 */
+    readonly enabled: boolean;
+    /** パフォーマンスモード */
+    readonly performanceMode: efs.PerformanceMode;
+    /** スループットモード */
+    readonly throughputMode: efs.ThroughputMode;
+    /** プロビジョンドスループット */
+    readonly provisionedThroughputPerSecond?: number;
+    /** 暗号化有効化 */
+    readonly encryption: boolean;
+    /** KMSキーARN */
+    readonly kmsKeyArn?: string;
+    /** ライフサイクルポリシー */
+    readonly lifecyclePolicy?: efs.LifecyclePolicy;
+    /** バックアップポリシー */
+    readonly backupPolicy?: efs.BackupPolicy;
+    /** アクセスポイント */
+    readonly accessPoints?: EfsAccessPoint[];
+}
+/**
+ * EFSアクセスポイント
+ */
+export interface EfsAccessPoint {
+    /** アクセスポイント名 */
+    readonly name: string;
+    /** パス */
+    readonly path: string;
+    /** POSIX ユーザー */
+    readonly posixUser?: efs.PosixUser;
+    /** 作成ACL */
+    readonly creationInfo?: efs.CreationInfo;
+}
+/**
+ * ストレージ統合設定
+ */
+export interface StorageConfig {
+    /** S3設定 */
+    readonly s3: S3Config;
+    /** FSx設定 */
+    readonly fsx: FsxConfig;
+    /** EFS設定 */
+    readonly efs: EfsConfig;
+    /** バックアップ設定 */
+    readonly backup?: StorageBackupConfig;
+    /** 監視設定 */
+    readonly monitoring?: StorageMonitoringConfig;
+    /** コスト最適化 */
+    readonly costOptimization?: StorageCostOptimizationConfig;
+}
+/**
+ * ストレージバックアップ設定
+ */
+export interface StorageBackupConfig {
+    /** AWS Backup有効化 */
+    readonly awsBackup: boolean;
+    /** バックアップ計画 */
+    readonly backupPlans?: StorageBackupPlan[];
+    /** クロスリージョンバックアップ */
+    readonly crossRegionBackup?: boolean;
+}
+/**
+ * ストレージバックアップ計画
+ */
+export interface StorageBackupPlan {
+    /** 計画名 */
+    readonly planName: string;
+    /** バックアップルール */
+    readonly rules: StorageBackupRule[];
+    /** 対象リソース */
+    readonly resources: string[];
+}
+/**
+ * ストレージバックアップルール
+ */
+export interface StorageBackupRule {
+    /** ルール名 */
+    readonly ruleName: string;
+    /** スケジュール */
+    readonly schedule: string;
+    /** 保持期間（日） */
+    readonly retentionDays: number;
+    /** コールドストレージ移行日数 */
+    readonly moveToColdStorageAfterDays?: number;
+}
+/**
+ * ストレージ監視設定
+ */
+export interface StorageMonitoringConfig {
+    /** CloudWatchメトリクス */
+    readonly cloudWatchMetrics: boolean;
+    /** アラート設定 */
+    readonly alerts?: StorageAlertConfig[];
+    /** コスト監視 */
+    readonly costMonitoring?: boolean;
+}
+/**
+ * ストレージアラート設定
+ */
+export interface StorageAlertConfig {
+    /** メトリクス名 */
+    readonly metricName: string;
+    /** 閾値 */
+    readonly threshold: number;
+    /** 比較演算子 */
+    readonly comparisonOperator: string;
+    /** 通知先 */
+    readonly notificationTargets: string[];
+}
+/**
+ * ストレージコスト最適化設定
+ */
+export interface StorageCostOptimizationConfig {
+    /** インテリジェント階層化 */
+    readonly intelligentTiering: boolean;
+    /** 使用量分析 */
+    readonly usageAnalytics?: boolean;
+    /** 推奨事項 */
+    readonly recommendations?: boolean;
+}
