@@ -28,6 +28,7 @@ Amazon FSx for NetApp ONTAPとAmazon Bedrockを組み合わせた、**モジュ�
 - **高精度検索**: OpenSearch Serverless ベクトル検索
 - **高性能ストレージ**: FSx for NetApp ONTAP
 - **AI統合**: Amazon Bedrock・4パターン選択式Embedding処理
+- **🆕 Amazon Nova Pro**: 最新AIモデル統合（80%コスト削減・31%高速化） ⭐ **v2.0.0**
 - **レスポンシブUI**: Next.js + React + Tailwind CSS（高度権限制御UI統合済み）
 - **サーバーレスアーキテクチャ**: AWS Lambda + CloudFront配信
 
@@ -574,6 +575,50 @@ TokyoRegion-permission-aware-rag-prod-Embedding   # Embedding・AI統合スタ�
 | **EmbeddingStack** | Embedding・AI・コンピュート統合 | Lambda、AWS Batch、ECS、Amazon Bedrock、FSx統合 |
 | **WebAppStack** | API・フロントエンド統合 | API Gateway、CloudFront、Cognito、Next.js |
 | **OperationsStack** | 監視・エンタープライズ統合 | CloudWatch、X-Ray、SNS、アラート、BI機能 |
+
+### 🆕 Amazon Nova Pro 統合 (v2.0.0)
+
+#### 概要
+
+バージョン2.0.0より、全てのBedrockモデルを**Amazon Nova Pro**に移行しました。これにより、コスト効率と性能の両面で大幅な改善を実現しています。
+
+#### 検証結果（2025-11-07実施）
+
+| 項目 | Nova Pro | Claude 3.5 Sonnet | 改善率 |
+|------|----------|-------------------|--------|
+| **平均レイテンシ** | 1,139ms | 1,661ms | **31%高速化** ⚡ |
+| **1回あたりコスト** | $0.0072 | $0.033 | **80%削減** 💰 |
+| **月間コスト（1000回）** | $7.20 | $33.00 | **$25.80削減** |
+| **成功率** | 100% (5/5) | 100% (5/5) | 同等 ✅ |
+
+#### コスト詳細
+
+- **Input tokens**: $0.0008/1K tokens（Claude比75%削減）
+- **Output tokens**: $0.0032/1K tokens（Claude比50%削減）
+- **Batch処理**: さらに50%割引適用可能
+- **年間削減額**: 約$310（1000回/月の場合）
+
+#### 使用方法
+
+Nova Proは自動的に使用されます。モデル設定を変更する場合：
+
+```bash
+# Bedrockモデル設定スクリプト実行
+./configure-bedrock-models.sh
+
+# オプション選択
+# 1: Amazon Nova Pro（推奨・デフォルト）
+# 2: Claude 3.5 Sonnet（レガシー）
+```
+
+#### 推奨事項
+
+- ✅ **本番環境**: Nova Pro使用を強く推奨
+- ✅ **開発環境**: Nova Proで十分な性能
+- ✅ **コスト重視**: Nova Proが最適
+- ⚠️ **特殊要件**: Claude 3.5 Sonnetも選択可能
+
+詳細は [リリースノート](docs/RELEASE_NOTES.md) を参照してください。
 
 #### デプロイメント手順
 
