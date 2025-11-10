@@ -144,6 +144,29 @@ export class StorageConstruct extends Construct {
 
     const config = this.props.config.fsxOntap;
 
+    // バックアップ設定の検証（本番環境保護）
+    const backupRetentionDays = config.automaticBackupRetentionDays ?? 0;
+    
+    if (this.props.environment === 'prod' && backupRetentionDays === 0) {
+      if (!config.disableBackupConfirmed) {
+        throw new Error(
+          '本番環境でFSx自動バックアップを無効化しようとしています。\n' +
+          'この操作を実行するには、設定で disableBackupConfirmed=true を設定してください。\n' +
+          '注意: 自動バックアップを無効化すると、データ損失のリスクが高まります。'
+        );
+      }
+      console.warn('⚠️  警告: 本番環境でFSx自動バックアップが無効化されています');
+      console.warn('⚠️  手動バックアップの定期実行を強く推奨します');
+    }
+
+    // バックアップ設定のログ出力
+    if (backupRetentionDays === 0) {
+      console.log('✅ FSx自動バックアップ: 無効（コスト最適化モード）');
+      console.log('ℹ️  手動バックアップは引き続き利用可能です');
+    } else {
+      console.log(`✅ FSx自動バックアップ: 有効（保持期間: ${backupRetentionDays}日）`);
+    }
+
     // FSx File System作成
     this.fsxFileSystem = new fsx.CfnFileSystem(this, 'FSxFileSystem', {
       fileSystemType: 'ONTAP',
@@ -156,8 +179,12 @@ export class StorageConstruct extends Construct {
         throughputCapacity: config.throughputCapacity,
         preferredSubnetId: config.preferredSubnetId || this.props.privateSubnetIds[0],
         routeTableIds: config.routeTableIds,
-        automaticBackupRetentionDays: config.automaticBackupRetentionDays,
-        dailyAutomaticBackupStartTime: config.dailyAutomaticBackupStartTime,
+        // 自動バックアップ設定（0で無効化）
+        automaticBackupRetentionDays: backupRetentionDays,
+        // バックアップ無効時はdailyAutomaticBackupStartTimeを未設定
+        dailyAutomaticBackupStartTime: backupRetentionDays > 0 
+          ? config.dailyAutomaticBackupStartTime 
+          : undefined,
         weeklyMaintenanceStartTime: config.weeklyMaintenanceStartTime,
         diskIopsConfiguration: config.diskIopsConfiguration,
       },

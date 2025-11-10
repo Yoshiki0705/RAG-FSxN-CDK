@@ -7,6 +7,8 @@ import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
 import { NetworkingConfig, NetworkingConstructProps } from '../interfaces/networking-config';
+import { CognitoVpcEndpoint } from './cognito-vpc-endpoint';
+import { CognitoEndpointSecurityGroup } from '../../security/constructs/cognito-endpoint-security-group';
 
 export class NetworkingConstruct extends Construct {
   public readonly vpc: ec2.Vpc;
@@ -15,14 +17,34 @@ export class NetworkingConstruct extends Construct {
   public readonly isolatedSubnets: ec2.ISubnet[];
   public readonly securityGroups: { [key: string]: ec2.SecurityGroup };
   public readonly vpcEndpoints?: { [key: string]: ec2.InterfaceVpcEndpoint | ec2.GatewayVpcEndpoint };
+  public readonly cognitoVpcEndpoint?: CognitoVpcEndpoint;
+  public readonly cognitoEndpointSecurityGroup?: CognitoEndpointSecurityGroup;
 
   constructor(scope: Construct, id: string, props: NetworkingConstructProps) {
     super(scope, id);
 
     const { config, projectName, environment } = props;
 
-    // VPCの作成
-    this.vpc = this.createVpc(config, projectName, environment);
+    // VPCの作成または既存VPCの参照（冪等性担保）
+    // 優先順位:
+    // 1. config.existingVpcId（設定ファイル）
+    // 2. CDKコンテキスト変数 `existingVpcId`
+    // 3. デフォルト: 新規VPC作成
+    const existingVpcId = config.existingVpcId ?? 
+      scope.node.tryGetContext('existingVpcId');
+    
+    if (existingVpcId) {
+      // 既存VPCを参照（冪等性）
+      this.vpc = ec2.Vpc.fromLookup(this, 'ExistingVpc', {
+        vpcId: existingVpcId,
+      }) as ec2.Vpc;
+      
+      console.log(`✅ 既存VPCを参照: ${existingVpcId}`);
+    } else {
+      // 新規VPCを作成
+      this.vpc = this.createVpc(config, projectName, environment);
+      console.log(`✅ 新規VPCを作成: ${this.vpc.vpcId}`);
+    }
 
     // サブネットの参照を設定
     this.publicSubnets = this.vpc.publicSubnets;
@@ -36,6 +58,44 @@ export class NetworkingConstruct extends Construct {
     if (config.vpcEndpoints) {
       this.vpcEndpoints = this.createVpcEndpoints(config);
     }
+
+    // Cognito VPC Endpoint統合（オプション機能）
+    // 設定の優先順位:
+    // 1. config.vpcEndpoints?.cognito?.enabled（設定ファイル）
+    // 2. CDKコンテキスト変数 `cognitoPrivateEndpoint`
+    // 3. デフォルト: false（Public接続モード）
+    const cognitoConfig = config.vpcEndpoints?.cognito;
+    const cognitoEnabled = cognitoConfig?.enabled ?? 
+      scope.node.tryGetContext('cognitoPrivateEndpoint') === true;
+    
+    // セキュリティグループ作成（Cognito VPC Endpoint有効時のみ）
+    this.cognitoEndpointSecurityGroup = new CognitoEndpointSecurityGroup(this, 'CognitoEndpointSG', {
+      vpc: this.vpc,
+      enabled: cognitoEnabled,
+      description: cognitoConfig?.securityGroupDescription,
+      allowedCidrs: cognitoConfig?.allowedCidrs,
+      projectName,
+      environment,
+    });
+
+    // VPC Endpoint作成（Cognito VPC Endpoint有効時のみ）
+    const subnetType = cognitoConfig?.subnets?.subnetType === 'PRIVATE_ISOLATED' 
+      ? ec2.SubnetType.PRIVATE_ISOLATED
+      : cognitoConfig?.subnets?.subnetType === 'PUBLIC'
+      ? ec2.SubnetType.PUBLIC
+      : ec2.SubnetType.PRIVATE_WITH_EGRESS;
+    
+    this.cognitoVpcEndpoint = new CognitoVpcEndpoint(this, 'CognitoVpcEndpoint', {
+      vpc: this.vpc,
+      enabled: cognitoEnabled,
+      subnets: { subnetType },
+      enablePrivateDns: cognitoConfig?.enablePrivateDns,
+      securityGroups: this.cognitoEndpointSecurityGroup.securityGroup 
+        ? [this.cognitoEndpointSecurityGroup.securityGroup] 
+        : undefined,
+      projectName,
+      environment,
+    });
 
     // フローログの設定
     if (config.enableFlowLogs) {

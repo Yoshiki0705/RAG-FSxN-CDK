@@ -8,6 +8,7 @@
       "dom.iterable",
       "es6"
     ],
+    "types": ["node"],
     "declaration": true,
     "strict": false,
     "noImplicitAny": false,

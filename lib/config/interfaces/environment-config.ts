@@ -69,6 +69,7 @@ export interface FsxOntapConfig {
   throughputCapacity: number;
   deploymentType: string;
   automaticBackupRetentionDays: number;
+  disableBackupConfirmed?: boolean; // 本番環境でのバックアップ無効化承認フラグ
 }
 
 export interface DatabaseConfig {

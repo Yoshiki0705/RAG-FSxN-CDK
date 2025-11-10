@@ -283,14 +283,32 @@ export interface FsxBackupConfig {
   /** 自動バックアップ有効化 */
   readonly automaticBackup: boolean;
   
-  /** バックアップ保持期間（日） */
-  readonly retentionDays: number;
+  /** 
+   * バックアップ保持期間（日）
+   * デフォルト: 0（自動バックアップ無効）
+   * 範囲: 0-90日
+   * 注意: 0に設定すると自動バックアップが無効化されます
+   */
+  readonly retentionDays?: number;
   
-  /** バックアップウィンドウ */
+  /** 
+   * バックアップウィンドウ（HH:MM形式）
+   * 例: "01:00"
+   * 注意: retentionDaysが0の場合は無視されます
+   */
   readonly backupWindow?: string;
   
-  /** メンテナンスウィンドウ */
+  /** 
+   * メンテナンスウィンドウ（d:HH:MM形式）
+   * 例: "1:01:00"（月曜日の午前1時）
+   */
   readonly maintenanceWindow?: string;
+  
+  /**
+   * 本番環境でのバックアップ無効化確認フラグ
+   * 本番環境でretentionDays=0を設定する場合、このフラグをtrueにする必要があります
+   */
+  readonly disableBackupConfirmed?: boolean;
 }
 
 /**

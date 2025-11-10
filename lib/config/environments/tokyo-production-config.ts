@@ -29,14 +29,38 @@ export const tokyoProductionConfig: EnvironmentConfig = {
   // ネットワーク設定（本番環境強化）
   networking: {
     vpcCidr: '10.0.0.0/16',
-    availabilityZones: 3, // 本番環境では3AZ
-    natGateways: {
-      enabled: true,
-      count: 3 // 各AZにNAT Gateway
-    },
-    enableVpcFlowLogs: true,
+    maxAzs: 3, // 本番環境では3AZ
+    enablePublicSubnets: true,
+    enablePrivateSubnets: true,
+    enableIsolatedSubnets: true,
+    enableNatGateway: true,
     enableDnsHostnames: true,
-    enableDnsSupport: true
+    enableDnsSupport: true,
+    enableFlowLogs: true,
+    vpcEndpoints: {
+      s3: true,
+      dynamodb: true,
+      lambda: false,
+      opensearch: false,
+      // Cognito VPC Endpoint設定（オプション）
+      // CDKコンテキスト変数 `cognitoPrivateEndpoint` で有効/無効を制御可能
+      // デフォルト: false（Public接続モード）
+      cognito: {
+        enabled: false, // デフォルトはPublic接続モード
+        enablePrivateDns: true,
+        subnets: {
+          subnetType: 'PRIVATE_WITH_EGRESS',
+        },
+        securityGroupDescription: 'Security group for Cognito VPC Endpoint',
+        // allowedCidrs: ['10.0.0.0/16'], // 指定しない場合、VPC CIDRが使用される
+      },
+    },
+    securityGroups: {
+      web: true,
+      api: true,
+      database: true,
+      lambda: true,
+    },
   },
 
   // セキュリティ設定（本番環境強化）
@@ -64,7 +88,8 @@ export const tokyoProductionConfig: EnvironmentConfig = {
       storageCapacity: 4096, // 本番環境では大容量
       throughputCapacity: 512, // 本番環境では高スループット
       deploymentType: 'MULTI_AZ_1', // 本番環境では冗長化
-      automaticBackupRetentionDays: 30 // 本番環境では長期保持
+      automaticBackupRetentionDays: 0, // 自動バックアップ無効化（コスト最適化）
+      disableBackupConfirmed: true // 本番環境での無効化を明示的に承認
     }
   },
 

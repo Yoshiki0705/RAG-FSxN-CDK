@@ -673,21 +673,6 @@ export function hasEcsConfig(config: ExtendedEmbeddingConfig): config is Extende
  */
 
 import { App, Stack } from 'aws-cdk-lib';
-import { 
-  ExtendedEmbeddingConfig, 
-  EmbeddingArchitecturePattern,
-  SpotInstanceConfig,
-  BatchConfig,
-  EcsConfig,
-  FSxMountConfig,
-  ProcessingLimits,
-  SqliteUpsertConfig,
-  MonitoringConfig,
-  CostAnalysisConfig,
-  MigrationConfig,
-  DEFAULT_EXTENDED_EMBEDDING_CONFIG,
-  EmbeddingConfigValidator
-} from './types/type';
 
 /**
  * CDK Context変数のキー定数

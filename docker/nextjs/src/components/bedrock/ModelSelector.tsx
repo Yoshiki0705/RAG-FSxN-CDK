@@ -1,17 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-
-interface ModelInfo {
-  id: string;
-  name: string;
-  provider: string;
-  category: string;
-  available: boolean;
-  reason?: string;
-  description?: string;
-  capabilities?: string[];
-}
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { ModelStatusBadge } from './ModelStatusBadge';
+import { UnavailableModelsList } from './UnavailableModelsList';
+import { SelectedModelInfo } from './SelectedModelInfo';
+import { AvailableModelsList } from './AvailableModelsList';
+import { 
+  processModelsFromRegionInfo, 
+  handleModelSelection, 
+  getSelectedModel,
+  type BedrockRegionInfo,
+  type ProcessedModel 
+} from './modelUtils';
+import { MODEL_DISPLAY_LIMITS } from './constants';
 
 interface ModelSelectorProps {
   selectedModelId: string;
@@ -19,334 +20,244 @@ interface ModelSelectorProps {
   showAdvancedFilters?: boolean;
 }
 
+// カスタムフックでデータ取得ロジックを分離
+function useBedrockRegionInfo() {
+  const [regionInfo, setRegionInfo] = useState<BedrockRegionInfo | null>(null);
+  const [isLoadingRegionInfo, setIsLoadingRegionInfo] = useState(false);
+
+  useEffect(() => {
+    const fetchRegionInfo = async () => {
+      setIsLoadingRegionInfo(true);
+      try {
+        const response = await fetch('/api/bedrock/region-info');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setRegionInfo(data.data);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch region info:', error);
+      } finally {
+        setIsLoadingRegionInfo(false);
+      }
+    };
+
+    fetchRegionInfo();
+  }, []);
+
+  return { regionInfo, isLoadingRegionInfo };
+}
+
 export function ModelSelector({ 
   selectedModelId, 
   onModelChange, 
   showAdvancedFilters = false 
 }: ModelSelectorProps) {
-  const [models, setModels] = useState<ModelInfo[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showRegionInfo, setShowRegionInfo] = useState(false);
+  const { regionInfo, isLoadingRegionInfo } = useBedrockRegionInfo();
 
-  // 拡張されたモデル情報（動的取得 + 静的情報の組み合わせ）
-  const extendedModels: ModelInfo[] = [
-    {
-      id: 'apac.amazon.nova-pro-v1:0',
-      name: 'Amazon Nova Pro',
-      provider: 'Amazon',
-      category: 'マルチモーダル',
-      available: true,
-      description: 'テキスト・画像・動画対応の高性能モデル',
-      capabilities: ['テキスト生成', '画像理解', '動画分析', 'コード生成']
-    },
-    {
-      id: 'apac.amazon.nova-lite-v1:0',
-      name: 'Amazon Nova Lite',
-      provider: 'Amazon',
-      category: '高速処理',
-      available: true,
-      description: '軽量・高速なテキスト生成モデル',
-      capabilities: ['テキスト生成', '要約', '翻訳']
-    },
-    {
-      id: 'apac.amazon.nova-micro-v1:0',
-      name: 'Amazon Nova Micro',
-      provider: 'Amazon',
-      category: '超高速',
-      available: true,
-      description: '最軽量・最高速のテキスト生成モデル',
-      capabilities: ['簡単なテキスト生成', 'チャット']
-    },
-    {
-      id: 'anthropic.claude-3-5-sonnet-20241022-v2:0',
-      name: 'Claude 3.5 Sonnet v2',
-      provider: 'Anthropic',
-      category: '高性能',
-      available: true,
-      description: '最新の高性能推論モデル',
-      capabilities: ['高度な推論', 'コード生成', '分析']
-    },
-    {
-      id: 'anthropic.claude-3-sonnet-20240229-v1:0',
-      name: 'Claude 3 Sonnet',
-      provider: 'Anthropic',
-      category: '汎用',
-      available: true,
-      description: 'バランスの取れた汎用モデル',
-      capabilities: ['テキスト生成', '分析', '要約']
-    },
-    {
-      id: 'anthropic.claude-3-haiku-20240307-v1:0',
-      name: 'Claude 3 Haiku',
-      provider: 'Anthropic',
-      category: '高速',
-      available: true,
-      description: '高速レスポンスモデル',
-      capabilities: ['高速テキスト生成', 'チャット']
-    },
-    {
-      id: 'meta.llama3-2-90b-instruct-v1:0',
-      name: 'Llama 3.2 90B Instruct',
-      provider: 'Meta',
-      category: '大規模',
-      available: false,
-      reason: 'リージョン制限',
-      description: '大規模言語モデル（他リージョンで利用可能）',
-      capabilities: ['高度な推論', '多言語対応']
-    },
-    {
-      id: 'cohere.command-r-plus-v1:0',
-      name: 'Command R+',
-      provider: 'Cohere',
-      category: 'RAG特化',
-      available: false,
-      reason: 'リージョン制限',
-      description: 'RAG用途に最適化されたモデル（他リージョンで利用可能）',
-      capabilities: ['RAG', '検索拡張生成']
-    }
-  ];
+  // デバッグ用ログ
+  console.log('🔍 ModelSelector rendered with:', { 
+    selectedModelId, 
+    showAdvancedFilters,
+    regionInfo: regionInfo ? {
+      availableCount: regionInfo.availableModelsCount,
+      unavailableCount: regionInfo.unavailableModelsCount
+    } : null
+  });
 
-  const selectedModel = extendedModels.find(m => m.id === selectedModelId) || extendedModels[0];
+  // モデル一覧の処理（メモ化）
+  const allModels = useMemo(() => processModelsFromRegionInfo(regionInfo), [regionInfo]);
+  const selectedModel = useMemo(() => getSelectedModel(allModels, selectedModelId), [allModels, selectedModelId]);
 
-  const fetchRegionModels = async () => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetch('/api/bedrock/region-info');
-      const data = await response.json();
-      
-      if (data.success && data.data.availableModels) {
-        // 動的取得したモデル情報と静的情報をマージ
-        const dynamicModels = data.data.availableModels.map((model: any) => {
-          const staticInfo = extendedModels.find(m => m.id === model.modelId);
-          return {
-            id: model.modelId,
-            name: staticInfo?.name || model.modelName || model.modelId,
-            provider: staticInfo?.provider || model.providerName || 'Unknown',
-            category: staticInfo?.category || 'General',
-            available: true,
-            description: staticInfo?.description || `${model.providerName}提供のモデル`,
-            capabilities: staticInfo?.capabilities || ['テキスト生成']
-          };
-        });
-        
-        setModels(dynamicModels);
-      } else {
-        // フォールバック: 静的モデル情報を使用
-        setModels(extendedModels);
-      }
-    } catch (err) {
-      console.error('Failed to fetch region models:', err);
-      setError('モデル情報の取得に失敗しました');
-      setModels(extendedModels);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // 利用可能なモデル一覧（選択中のモデルを除外）- メモ化でパフォーマンス最適化
+  const availableModelsFiltered = useMemo(() => {
+    return allModels.filter(model => 
+      model.available && model.id !== selectedModelId
+    );
+  }, [allModels, selectedModelId]);
 
-  useEffect(() => {
-    fetchRegionModels();
-  }, []);
-
-  const availableModels = models.filter(m => m.available);
-  const unavailableModels = models.filter(m => !m.available);
+  // モデル選択ハンドラー（メモ化）
+  const handleModelChange = useCallback((modelId: string) => {
+    const targetModel = allModels.find(m => m.id === modelId);
+    handleModelSelection(targetModel, onModelChange, modelId);
+  }, [allModels, onModelChange]);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4" data-component="ModelSelector" data-testid="model-selector">
+      {/* ヘッダー部分 */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-gray-900">AIモデル選択</h3>
-        <button
-          onClick={fetchRegionModels}
-          disabled={isLoading}
-          className="text-xs text-blue-600 hover:text-blue-700 underline disabled:opacity-50"
-        >
-          {isLoading ? '更新中...' : '🔄 更新'}
-        </button>
+        <div className="flex items-center space-x-2">
+          <label className="text-sm font-medium text-gray-700">AIモデル選択</label>
+          {regionInfo && (
+            <div className="flex items-center space-x-1 text-xs">
+              <ModelStatusBadge isAvailable={true} count={regionInfo.availableModelsCount} />
+              {regionInfo.unavailableModelsCount > 0 && (
+                <ModelStatusBadge isAvailable={false} count={regionInfo.unavailableModelsCount} />
+              )}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center space-x-2">
+          {regionInfo && (
+            <button
+              onClick={() => setShowRegionInfo(!showRegionInfo)}
+              className="text-xs text-green-600 hover:text-green-800 flex items-center space-x-1 px-2 py-1 rounded hover:bg-green-50"
+              title="リージョン情報を表示"
+            >
+              <span>🌍</span>
+              <span>{regionInfo.currentRegionName}</span>
+            </button>
+          )}
+          {showAdvancedFilters && (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50"
+            >
+              {isExpanded ? '📋 簡易' : '📋 詳細'}
+            </button>
+          )}
+        </div>
       </div>
 
-      {error && (
-        <div className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
-          ⚠️ {error}
+      {/* 選択中のモデル情報を上部に固定表示 */}
+      <SelectedModelInfo 
+        model={selectedModel}
+        onModelChange={onModelChange}
+        availableModels={availableModelsFiltered}
+        showRecommendations={true}
+      />
+      
+      {/* 利用可能なモデル一覧（選択中のモデルを除外してカテゴリ別グループ化） */}
+      <AvailableModelsList 
+        models={allModels}
+        selectedModelId={selectedModelId}
+        onModelSelect={handleModelChange}
+        showCategories={true}
+      />
+
+      {/* リージョン情報表示 */}
+      {showRegionInfo && regionInfo && (
+        <div className="mt-2 p-3 bg-blue-50 rounded-md text-xs border border-blue-200">
+          <div className="space-y-2">
+            <div className="font-medium text-blue-900 flex items-center space-x-2">
+              <span>🌍</span>
+              <span>Bedrockリージョン情報</span>
+            </div>
+            <div className="space-y-1 text-blue-800">
+              <div><span className="font-medium">現在のリージョン:</span> {regionInfo.currentRegionName} ({regionInfo.currentRegion})</div>
+              <div><span className="font-medium">利用可能モデル:</span> {regionInfo.availableModelsCount}個</div>
+              <div><span className="font-medium">利用不可モデル:</span> {regionInfo.unavailableModelsCount}個</div>
+              <div><span className="font-medium">最終確認:</span> {new Date(regionInfo.lastChecked).toLocaleString('ja-JP')}</div>
+            </div>
+            {regionInfo.unavailableModelsCount > 0 && (
+              <div className="mt-2 p-2 bg-yellow-50 rounded border border-yellow-200">
+                <div className="text-yellow-800 text-xs">
+                  <div className="font-medium">⚠️ 利用不可能なモデル:</div>
+                  <div className="mt-1 space-y-1">
+                    {regionInfo.unavailableModels.slice(0, MODEL_DISPLAY_LIMITS.UNAVAILABLE_MODELS_PREVIEW).map(model => (
+                      <div key={model.modelId} className="text-xs">
+                        • {model.modelName} ({model.provider}) - {model.reason}
+                      </div>
+                    ))}
+                    {regionInfo.unavailableModels.length > MODEL_DISPLAY_LIMITS.UNAVAILABLE_MODELS_PREVIEW && (
+                      <div className="text-xs text-yellow-600">
+                        ...他 {regionInfo.unavailableModels.length - MODEL_DISPLAY_LIMITS.UNAVAILABLE_MODELS_PREVIEW}個
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* 現在選択中のモデル詳細（上部に移動） */}
-      <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-        <h4 className="text-sm font-medium text-blue-900 mb-2">📊 選択中のモデル</h4>
-        <div className="space-y-2">
-          <div className="flex items-center space-x-2">
-            <span className="text-base font-semibold text-gray-900">{selectedModel.name}</span>
-            <span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-full">
-              {selectedModel.provider}
-            </span>
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-              selectedModel.available 
-                ? 'bg-green-100 text-green-700' 
-                : 'bg-red-100 text-red-700'
-            }`}>
-              {selectedModel.available ? '✅ 利用可能' : '❌ 利用不可'}
-            </span>
-          </div>
-          {selectedModel.description && (
-            <div className="text-sm text-gray-700">{selectedModel.description}</div>
-          )}
-          {selectedModel.capabilities && (
-            <div className="flex flex-wrap gap-1">
-              {selectedModel.capabilities.map((cap, index) => (
-                <span
-                  key={index}
-                  className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full"
-                >
-                  {cap}
-                </span>
-              ))}
-            </div>
-          )}
-          <div className="text-xs text-gray-500 font-mono">
-            ID: {selectedModel.id}
-          </div>
-        </div>
-      </div>
 
-      {/* 利用可能なモデル */}
-      <div className="space-y-2">
-        <h4 className="text-sm font-medium text-green-700">✅ 利用可能なモデル</h4>
-        <div className="space-y-2">
-          {availableModels.map((model) => (
-            <div
-              key={model.id}
-              className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                selectedModelId === model.id
-                  ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-200'
-                  : 'bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300'
-              }`}
-              onClick={() => onModelChange(model.id)}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <span className="text-sm font-medium text-gray-900">
-                      {model.name}
-                    </span>
-                    <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
-                      {model.provider}
-                    </span>
-                    <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-600 rounded-full">
-                      {model.category}
-                    </span>
+
+      {/* 利用不可能なモデル一覧表示 */}
+      {regionInfo && regionInfo.unavailableModelsCount > 0 && (
+        <UnavailableModelsList 
+          unavailableModels={regionInfo.unavailableModels.map(model => ({
+            id: model.modelId,
+            name: model.modelName,
+            description: `${model.provider}の${model.modelName}`,
+            provider: model.provider as any,
+            category: 'chat' as any,
+            maxTokens: 4000,
+            temperature: 0.7,
+            topP: 0.9,
+            availableRegions: [],
+            type: 'chat' as any
+          }))}
+          unavailableModelsCount={regionInfo.unavailableModelsCount}
+        />
+      )}
+
+      {/* 詳細情報表示 */}
+      {isExpanded && (
+        <div className="space-y-3">
+          {selectedModel && (
+            <div className="p-3 bg-gray-50 rounded border border-gray-200">
+              <div className="space-y-2">
+                <div className="font-semibold text-gray-800 mb-2">📋 選択中モデルの詳細情報</div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="text-gray-800"><span className="font-medium">プロバイダー:</span> {selectedModel.provider}</div>
+                  <div className="text-gray-800"><span className="font-medium">カテゴリー:</span> {selectedModel.category}</div>
+                  <div className="flex items-center space-x-2 col-span-2">
+                    <span className="font-medium text-gray-800">利用可能性:</span>
+                    {selectedModel.available ? (
+                      <span className="text-green-700 flex items-center space-x-1 font-medium">
+                        <span>✅</span>
+                        <span>利用可能</span>
+                      </span>
+                    ) : (
+                      <span className="text-red-700 flex items-center space-x-1 font-medium">
+                        <span>❌</span>
+                        <span>利用不可</span>
+                      </span>
+                    )}
                   </div>
-                  {model.description && (
-                    <div className="text-xs text-gray-600 mb-2">
-                      {model.description}
-                    </div>
-                  )}
-                  {model.capabilities && (
-                    <div className="flex flex-wrap gap-1">
-                      {model.capabilities.map((cap, index) => (
-                        <span
-                          key={index}
-                          className="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded"
-                        >
-                          {cap}
-                        </span>
-                      ))}
-                    </div>
-                  )}
                 </div>
-                {selectedModelId === model.id && (
-                  <div className="text-blue-600">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
+                <div className="text-gray-800 text-xs">
+                  <span className="font-medium">モデルID:</span> 
+                  <code className="ml-1 px-1 py-0.5 bg-gray-200 rounded text-xs font-mono text-gray-900">
+                    {selectedModel.id}
+                  </code>
+                </div>
+                {selectedModel.reason && (
+                  <div className="text-red-700 text-xs">
+                    <span className="font-medium">理由:</span> {selectedModel.reason}
                   </div>
                 )}
               </div>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 利用不可能なモデル */}
-      {unavailableModels.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium text-red-700">❌ 利用不可能なモデル</h4>
-          <div className="space-y-2">
-            {unavailableModels.map((model) => (
-              <div
-                key={model.id}
-                className="p-3 rounded-lg border bg-gray-50 border-gray-200 opacity-60"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <span className="text-sm font-medium text-gray-500">
-                        {model.name}
-                      </span>
-                      <span className="px-2 py-0.5 text-xs bg-gray-200 text-gray-500 rounded-full">
-                        {model.provider}
-                      </span>
-                      <span className="px-2 py-0.5 text-xs bg-red-100 text-red-600 rounded-full">
-                        {model.reason || '利用不可'}
-                      </span>
-                    </div>
-                    {model.description && (
-                      <div className="text-xs text-gray-500 mb-2">
-                        {model.description}
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-red-500">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                </div>
+          )}
+          
+          {/* 統計情報 */}
+          <div className="p-3 bg-blue-50 rounded border border-blue-200">
+            <div className="space-y-2">
+              <div className="font-semibold text-blue-800 mb-2">📊 モデル統計</div>
+              <div className="grid grid-cols-2 gap-2 text-xs text-blue-800">
+                <div><span className="font-medium">全モデル数:</span> {allModels.length}個</div>
+                <div><span className="font-medium">利用可能:</span> {allModels.filter(m => m.available).length}個</div>
+                <div><span className="font-medium">利用不可:</span> {allModels.filter(m => !m.available).length}個</div>
+                <div><span className="font-medium">選択可能:</span> {availableModelsFiltered.length}個</div>
               </div>
-            ))}
+            </div>
           </div>
         </div>
       )}
 
-      {/* 高度権限制御の対処方法（改善版） */}
-      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-        <h4 className="text-sm font-medium text-yellow-800 mb-2">🔐 高度権限制御について</h4>
-        <div className="text-sm text-gray-700 space-y-2">
-          <div>一部のモデルは権限制御により制限される場合があります。</div>
-          <div>
-            <div className="font-medium text-yellow-800 mb-1">対処方法:</div>
-            <div className="space-y-1 text-sm">
-              <div className="flex items-start space-x-2">
-                <span className="text-blue-600 font-bold">1.</span>
-                <div>
-                  <div className="font-medium">利用可能なモデルを選択</div>
-                  <div className="text-gray-600 text-xs">上記の「✅ 利用可能なモデル」から選択してください</div>
-                </div>
-              </div>
-              <div className="flex items-start space-x-2">
-                <span className="text-blue-600 font-bold">2.</span>
-                <div>
-                  <div className="font-medium">システム管理者に権限拡張を依頼</div>
-                  <div className="text-gray-600 text-xs">特定のモデルが必要な場合は管理者にお問い合わせください</div>
-                </div>
-              </div>
-              <div className="flex items-start space-x-2">
-                <span className="text-blue-600 font-bold">3.</span>
-                <div>
-                  <div className="font-medium">業務要件に応じたモデル申請</div>
-                  <div className="text-gray-600 text-xs">用途に応じて適切なモデルの利用申請を行ってください</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
-            <div className="font-medium text-blue-800">💡 ヒント:</div>
-            <div className="text-blue-700">
-              Amazon Nova Proは多くの用途に対応できる高性能モデルです。まずはこちらをお試しください。
-            </div>
-          </div>
+      {/* ローディング表示 */}
+      {isLoadingRegionInfo && (
+        <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600 flex items-center space-x-2">
+          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+          <span>リージョン情報を取得中...</span>
         </div>
-      </div>
+      )}
     </div>
   );
 }

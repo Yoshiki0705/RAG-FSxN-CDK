@@ -60,20 +60,22 @@ export class DataStack extends cdk.Stack {
   public readonly dynamoDbTableNames: { [key: string]: string } = {};
   
   /** OpenSearchドメインエンドポイント（他スタックからの参照用） */
-  public readonly openSearchEndpoint?: string;
+  public get openSearchEndpoint(): string | undefined {
+    return this.database?.outputs?.openSearchEndpoint as string | undefined;
+  }
 
   /** プロジェクト名（内部参照用） */
   private readonly projectName: string;
   
   /** 環境名（内部参照用） */
-  private readonly environment: string;
+  private readonly environmentName: string;
 
   constructor(scope: Construct, id: string, props: DataStackProps) {
     super(scope, id, props);
 
     // プロパティの初期化
     this.projectName = props.projectName;
-    this.environment = props.environment;
+    this.environmentName = props.environment;
 
     console.log('💾 DataStack初期化開始...');
     console.log('📝 スタック名:', id);
@@ -95,7 +97,6 @@ export class DataStack extends cdk.Stack {
       projectName: props.projectName,
       environment: props.environment,
       kmsKey: props.securityStack?.kmsKey,
-      namingGenerator: props.namingGenerator,
     });
 
     // 統合データベースコンストラクト作成
@@ -104,7 +105,6 @@ export class DataStack extends cdk.Stack {
       projectName: props.projectName,
       environment: props.environment,
       kmsKey: props.securityStack?.kmsKey,
-      namingGenerator: props.namingGenerator,
     });
 
     // 他スタックからの参照用プロパティ設定
@@ -164,12 +164,6 @@ export class DataStack extends cdk.Stack {
             console.warn(`⚠️ 無効なDynamoDBテーブル設定をスキップ: ${name}`);
           }
         });
-      }
-
-      // OpenSearchエンドポイントの設定（型安全性強化）
-      if (this.database.outputs?.openSearchEndpoint && 
-          typeof this.database.outputs.openSearchEndpoint === 'string') {
-        this.openSearchEndpoint = this.database.outputs.openSearchEndpoint;
       }
 
       console.log('🔗 他スタック参照用プロパティ設定完了');
@@ -242,15 +236,15 @@ export class DataStack extends cdk.Stack {
       // プロジェクト標準タグ設定を取得（propsから取得）
       const taggingConfig = PermissionAwareRAGTags.getStandardConfig(
         this.projectName || 'permission-aware-rag',
-        this.environment || 'dev'
+        this.environmentName || 'dev'
       );
       
       // 環境別タグ設定をマージ
-      const envConfig = PermissionAwareRAGTags.getEnvironmentConfig(this.environment || 'dev');
+      const envConfig = PermissionAwareRAGTags.getEnvironmentConfig(this.environmentName || 'dev');
       const mergedConfig = { ...taggingConfig, ...envConfig };
       
       // セキュリティ要件タグをマージ
-      const securityConfig = PermissionAwareRAGTags.getSecurityConfig(this.environment as any || 'dev');
+      const securityConfig = PermissionAwareRAGTags.getSecurityConfig(this.environmentName as any || 'dev');
       const finalConfig = { ...mergedConfig, ...securityConfig };
       
       // データスタック固有のカスタムタグを追加

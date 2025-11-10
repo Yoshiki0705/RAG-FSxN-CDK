@@ -17,7 +17,7 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="h-screen flex overflow-hidden">
       <BrandImageSection />
       <SignInFormSection
         username={username}
@@ -33,17 +33,27 @@ export default function SignInPage() {
 }
 
 /**
- * ブランド画像セクション - GitHubオリジナルに準拠したシンプルな実装
+ * ブランド画像セクション - テキスト重なり修正版
  */
 function BrandImageSection() {
   return (
-    <div className="relative hidden bg-muted lg:block lg:w-1/2">
+    <div className="hidden lg:flex lg:w-1/2 relative">
       <img
         src="/images/main-image.jpg"
         alt="NetApp building with Intelligent Data Infrastructure signage"
         className="w-full h-full object-cover"
-        style={{ objectFit: 'cover' }}
       />
+      {/* グラデーションオーバーレイ - 下部を濃く */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+      {/* テキストコンテンツ - 下部に固定配置 */}
+      <div className="absolute bottom-0 left-0 right-0 p-12 text-white">
+        <h1 className="text-4xl font-bold mb-4 drop-shadow-2xl">
+          RAG Application with NetApp ONTAP
+        </h1>
+        <p className="text-xl opacity-95 drop-shadow-lg">
+          Intelligent Data Infrastructure for Enterprise AI
+        </p>
+      </div>
     </div>
   );
 }
@@ -71,14 +81,14 @@ function SignInFormSection({
   error
 }: SignInFormSectionProps) {
   return (
-    <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
-      <div className="max-w-md w-full space-y-8">
+    <div className="w-full lg:w-1/2 flex items-center justify-center p-6 bg-gray-50 h-full">
+      <div className="max-w-sm w-full space-y-6">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-900">サインイン</h2>
+          <h2 className="text-2xl font-bold text-gray-900">サインイン</h2>
           <p className="mt-2 text-gray-600">Permission-aware RAG System</p>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-6">
+        <form onSubmit={onSubmit} className="space-y-4">
           <FormField
             id="username"
             label="ユーザー名"
@@ -103,7 +113,7 @@ function SignInFormSection({
 
           {error && (
             <div className="text-red-600 text-sm text-center" role="alert">
-              {error.message}
+              {error}
             </div>
           )}
 

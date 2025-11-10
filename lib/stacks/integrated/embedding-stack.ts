@@ -14,7 +14,7 @@ import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 
 // モジュール構成要素
-import { ComputeConstruct } from '../../modules/compute/constructs/compute-construct';
+import { ComputeConstruct } from '../../modules/embedding/constructs/compute-construct';
 import { AIConstruct } from '../../modules/ai/constructs/ai-construct';
 import { EmbeddingBatchIntegration } from '../../modules/embedding/constructs/embedding-batch-integration';
 import { BatchIntegrationTest } from '../../modules/embedding/constructs/batch-integration-test';

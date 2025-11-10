@@ -888,7 +888,7 @@ chmod +x sync-ec2-project.sh
 **対象環境**:
 - **ローカル**: macOS環境（SSH秘密鍵: fujiwara-useast1.pem）
 - **EC2**: ubuntu@ec2-54-235-34-127.compute-1.amazonaws.com
-- **プロジェクトディレクトリ**: /home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master
+- **プロジェクトディレクトリ**: /home/ubuntu/Permission-aware-RAG-FSxN-CDK-github
 
 **注意事項**:
 
@@ -926,7 +926,7 @@ chmod +x fix-lambda-builder-pattern-error.sh
 
 #### fix-compute-validation-error.sh 🆕 **コンピュートスタック検証エラー修正（緊急・高優先）**
 **用途**: コンピュートスタックの検証エラーを根本修正（ValidationChain統合修正）  
-**実行場所**: EC2環境（/home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master）  
+**実行場所**: EC2環境（/home/ubuntu/Permission-aware-RAG-FSxN-CDK-github）  
 **対象**: lib/modules/compute/constructs/validation-chain.js・compute-construct.js  
 **実行時間**: 約1-2分  
 **優先度**: 🚨 **高優先度（CDK操作前実行推奨）**
@@ -940,7 +940,7 @@ chmod +x fix-lambda-builder-pattern-error.sh
 **実行例**:
 ```bash
 # EC2環境で実行
-cd /home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master
+cd /home/ubuntu/Permission-aware-RAG-FSxN-CDK-github
 chmod +x fix-compute-validation-error.sh
 ./fix-compute-validation-error.sh
 ```
@@ -1030,7 +1030,7 @@ chmod +x sync-compute-to-embedding-migration.sh
 
 #### update-naming-system.sh 🆕 **Agent Steering準拠命名システム完全適用スクリプト（最新追加・最優先推奨）**
 **用途**: 統合アプリケーションに完全なAgent Steering準拠命名システムを適用  
-**実行場所**: EC2環境（/home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master）  
+**実行場所**: EC2環境（/home/ubuntu/Permission-aware-RAG-FSxN-CDK-github）  
 **対象**: 統合CDKアプリケーション・命名ジェネレーター・スタック命名規則の完全統合  
 **実行時間**: 約2-3分  
 
@@ -1046,7 +1046,7 @@ chmod +x sync-compute-to-embedding-migration.sh
 **実行例**:
 ```bash
 # EC2環境で実行
-cd /home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master
+cd /home/ubuntu/Permission-aware-RAG-FSxN-CDK-github
 chmod +x update-naming-system.sh
 ./update-naming-system.sh
 ```
@@ -1099,7 +1099,7 @@ TokyoRegion-permission-aware-rag-prod-Operations  // 運用統合スタック
 
 #### create-webapp-deployment-script.sh 🆕 **WebAppスタック正式デプロイメントスクリプト（最新追加・本番対応）**
 **用途**: WebAppスタックの正式で包括的なデプロイメント実行  
-**実行場所**: EC2環境（/home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master）  
+**実行場所**: EC2環境（/home/ubuntu/Permission-aware-RAG-FSxN-CDK-github）  
 **対象**: TokyoRegion-permission-aware-rag-prod-WebAppスタックの完全デプロイ  
 **実行時間**: 約15-20分（完全デプロイ時間含む）  
 **優先度**: 🚀 **本番対応（正式WebAppスタックデプロイ時実行推奨）**
@@ -1118,7 +1118,7 @@ TokyoRegion-permission-aware-rag-prod-Operations  // 運用統合スタック
 **実行例**:
 ```bash
 # EC2環境で実行（正式WebAppスタックデプロイ時）
-cd /home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master
+cd /home/ubuntu/Permission-aware-RAG-FSxN-CDK-github
 chmod +x create-webapp-deployment-script.sh
 ./create-webapp-deployment-script.sh
 ```
@@ -1199,7 +1199,7 @@ new WebAppStack(app, 'TokyoRegion-permission-aware-rag-prod-WebApp', {
 
 #### fix-stack-naming-compliance.sh 🆕 **Agent Steering準拠スタック命名規則修正スクリプト**
 **用途**: 非準拠スタックの削除と統合アーキテクチャへの移行  
-**実行場所**: EC2環境（/home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master）  
+**実行場所**: EC2環境（/home/ubuntu/Permission-aware-RAG-FSxN-CDK-github）  
 **対象**: Agent Steering準拠の統合スタック命名規則への移行  
 **実行時間**: 約5-10分（削除監視含む）  
 
@@ -1215,7 +1215,7 @@ new WebAppStack(app, 'TokyoRegion-permission-aware-rag-prod-WebApp', {
 **実行例**:
 ```bash
 # EC2環境で実行
-cd /home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master
+cd /home/ubuntu/Permission-aware-RAG-FSxN-CDK-github
 chmod +x fix-stack-naming-compliance.sh
 ./fix-stack-naming-compliance.sh
 ```
@@ -1279,7 +1279,7 @@ chmod +x fix-stack-naming-compliance.sh
 - **確認対象**: `TokyoRegion-permission-aware-rag-prod-*`（Agent Steering準拠統合スタック）
 
 **注意事項**:
-- **EC2環境前提**: /home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master での実行
+- **EC2環境前提**: /home/ubuntu/Permission-aware-RAG-FSxN-CDK-github での実行
 - **AWS認証**: user01プロファイルでの認証が必要
 - **削除監視**: permission-aware-rag-fsxn-prodスタック削除完了まで待機
 - **統合移行**: 旧スタック機能の新統合スタックへの移行確認
@@ -1287,7 +1287,7 @@ chmod +x fix-stack-naming-compliance.sh
 
 #### quick-deployment-test.sh 🆕 **迅速デプロイメントテスト**
 **用途**: 修正されたコンピュートモジュールの段階的テスト・検証  
-**実行場所**: EC2環境（/home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master）  
+**実行場所**: EC2環境（/home/ubuntu/Permission-aware-RAG-FSxN-CDK-github）  
 **対象**: コンピュートモジュール・Lambda関数・Agent Steering準拠確認  
 **実行時間**: 約2-3分  
 
@@ -1303,7 +1303,7 @@ chmod +x fix-stack-naming-compliance.sh
 **実行例**:
 ```bash
 # EC2環境で実行
-cd /home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master
+cd /home/ubuntu/Permission-aware-RAG-FSxN-CDK-github
 chmod +x quick-deployment-test.sh
 ./quick-deployment-test.sh
 ```
@@ -1424,7 +1424,7 @@ chmod +x quick-deployment-test.sh
 
 ```bash
 # EC2環境でのデプロイメント
-cd /home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master
+cd /home/ubuntu/Permission-aware-RAG-FSxN-CDK-github
 chmod +x ec2-deploy-advanced-permission.sh
 ./ec2-deploy-advanced-permission.sh
 ```
@@ -1473,7 +1473,7 @@ python3 development/scripts/testing/advanced-permission-control-test.py
 - `lambda/tenant-manager/index.js`（確認対象）
 
 **注意事項**:
-- EC2環境での実行が前提（/home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master）
+- EC2環境での実行が前提（/home/ubuntu/Permission-aware-RAG-FSxN-CDK-github）
 - user01プロファイルでのAWS認証が必要
 - 構文エラーがあっても継続実行（警告表示）
 - ローカルテストはNode.js環境での基本動作確認のみ
@@ -1483,7 +1483,7 @@ python3 development/scripts/testing/advanced-permission-control-test.py
 
 #### fix-ai-construct-syntax.sh 🆕 **AI構成ファイル構文修正スクリプト（最新追加）**
 **用途**: AIモジュールコンストラクトの構文エラーを根本修正  
-**実行場所**: EC2環境（/home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master）  
+**実行場所**: EC2環境（/home/ubuntu/Permission-aware-RAG-FSxN-CDK-github）  
 **対象**: lib/modules/ai/constructs/ai-construct.ts  
 **実行時間**: 約1-2分  
 
@@ -1499,7 +1499,7 @@ python3 development/scripts/testing/advanced-permission-control-test.py
 **実行例**:
 ```bash
 # EC2環境で実行
-cd /home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master
+cd /home/ubuntu/Permission-aware-RAG-FSxN-CDK-github
 chmod +x fix-ai-construct-syntax.sh
 ./fix-ai-construct-syntax.sh
 ```
@@ -1567,7 +1567,7 @@ chmod +x fix-ai-construct-syntax.sh
 - `lib/modules/ai/constructs/ai-construct.ts.backup.YYYYMMDD_HHMMSS`（バックアップ）
 
 **注意事項**:
-- EC2環境での実行が前提（/home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master）
+- EC2環境での実行が前提（/home/ubuntu/Permission-aware-RAG-FSxN-CDK-github）
 - 既存のai-construct.tsファイルを完全に上書き
 - バックアップファイルはタイムスタンプ付きで保存
 - TypeScript構文チェックでエラーが発生した場合は詳細表示
@@ -1575,7 +1575,7 @@ chmod +x fix-ai-construct-syntax.sh
 
 #### fix-lambda-builder-pattern-error.sh 🆕 **LambdaConfigTemplatesビルダーパターンエラー修正スクリプト（最新追加・緊急修正）**
 **用途**: LambdaConfigTemplatesクラスのビルダーパターンエラーを修正  
-**実行場所**: EC2環境（/home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master）  
+**実行場所**: EC2環境（/home/ubuntu/Permission-aware-RAG-FSxN-CDK-github）  
 **対象**: lib/modules/compute/constructs/compute-config-builder.js  
 **実行時間**: 約1分  
 **優先度**: 🚨 **高優先度（CDK操作前実行推奨）**
@@ -1591,7 +1591,7 @@ chmod +x fix-ai-construct-syntax.sh
 **実行例**:
 ```bash
 # EC2環境で実行
-cd /home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master
+cd /home/ubuntu/Permission-aware-RAG-FSxN-CDK-github
 chmod +x fix-lambda-builder-pattern-error.sh
 ./fix-lambda-builder-pattern-error.sh
 ```
@@ -1663,7 +1663,7 @@ class LambdaConfigBuilder {
 - `lib/modules/compute/constructs/compute-config-builder.js.backup2`（バックアップ）
 
 **注意事項**:
-- **EC2環境前提**: /home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master での実行
+- **EC2環境前提**: /home/ubuntu/Permission-aware-RAG-FSxN-CDK-github での実行
 - **JavaScript直接修正**: TypeScriptソースではなくJavaScriptファイルの直接修正
 - **ビルダーパターン準拠**: GoFデザインパターンに準拠したビルダーパターン実装
 - **CDK動作確認**: 修正後の即座CDKリスト実行による動作検証
@@ -1671,7 +1671,7 @@ class LambdaConfigBuilder {
 
 #### fix-lambda-naming.sh 🆕 **Lambda関数命名規則修正スクリプト**
 **用途**: Agent Steering準拠の直感的な命名規則への修正  
-**実行場所**: EC2環境（/home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master）  
+**実行場所**: EC2環境（/home/ubuntu/Permission-aware-RAG-FSxN-CDK-github）  
 **対象**: Phase系命名からビジネス機能名への変更  
 **実行時間**: 約1-2分  
 
@@ -1686,7 +1686,7 @@ class LambdaConfigBuilder {
 **実行例**:
 ```bash
 # EC2環境で実行
-cd /home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master
+cd /home/ubuntu/Permission-aware-RAG-FSxN-CDK-github
 chmod +x fix-lambda-naming.sh
 ./fix-lambda-naming.sh
 ```
@@ -1711,7 +1711,7 @@ chmod +x fix-lambda-naming.sh
 
 #### setup-all-lambda-functions.sh 🆕 **全Lambda関数セットアップスクリプト**
 **用途**: 全Lambda関数の包括的セットアップとCDKスタック確認  
-**実行場所**: EC2環境（/home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master）  
+**実行場所**: EC2環境（/home/ubuntu/Permission-aware-RAG-FSxN-CDK-github）  
 **対象**: 6つの主要Lambda関数の完全セットアップ  
 **実行時間**: 約2-3分  
 
@@ -1725,7 +1725,7 @@ chmod +x fix-lambda-naming.sh
 **実行例**:
 ```bash
 # EC2環境で実行
-cd /home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master
+cd /home/ubuntu/Permission-aware-RAG-FSxN-CDK-github
 chmod +x setup-all-lambda-functions.sh
 ./setup-all-lambda-functions.sh
 ```
@@ -1740,7 +1740,7 @@ chmod +x setup-all-lambda-functions.sh
 
 #### create-lambda-sources.sh 🆕 **CDK管理Lambda関数ソースコード作成**
 **用途**: CDKが期待するLambda関数のソースコードを自動作成  
-**実行場所**: EC2環境（/home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master）  
+**実行場所**: EC2環境（/home/ubuntu/Permission-aware-RAG-FSxN-CDK-github）  
 **対象**: CDKスタックで使用するLambda関数の基盤コード  
 **実行時間**: 約1-2分  
 
@@ -1756,7 +1756,7 @@ chmod +x setup-all-lambda-functions.sh
 **実行例**:
 ```bash
 # EC2環境で実行
-cd /home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master
+cd /home/ubuntu/Permission-aware-RAG-FSxN-CDK-github
 chmod +x create-lambda-sources.sh
 ./create-lambda-sources.sh
 ```
@@ -1776,7 +1776,7 @@ chmod +x create-lambda-sources.sh
 
 #### setup-chatbot-resources.sh 🆕 **Chatbot検証用リソース自動構築**
 **用途**: Permission-aware RAG Chatbotの検証に必要なLambda関数とリソースを自動構築  
-**実行場所**: EC2環境（/home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master）  
+**実行場所**: EC2環境（/home/ubuntu/Permission-aware-RAG-FSxN-CDK-github）  
 **対象**: Chatbot機能の包括的検証環境  
 **実行時間**: 約3-5分  
 
@@ -1790,7 +1790,7 @@ chmod +x create-lambda-sources.sh
 **実行例**:
 ```bash
 # EC2環境で実行
-cd /home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master
+cd /home/ubuntu/Permission-aware-RAG-FSxN-CDK-github
 chmod +x setup-chatbot-resources.sh
 ./setup-chatbot-resources.sh
 ```

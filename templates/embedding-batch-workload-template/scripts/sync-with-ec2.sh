@@ -33,7 +33,7 @@ fi
 EC2_HOST="${EC2_HOST:-ec2-54-235-34-127.compute-1.amazonaws.com}"
 EC2_USER="${EC2_USER:-ubuntu}"
 EC2_KEY="${EC2_KEY:-/Users/yoshiki/Downloads/Archive/system-files/fujiwara-useast1.pem}"
-EC2_PROJECT_DIR="${EC2_PROJECT_DIR:-/home/ubuntu/rag/Permission-aware-RAG-FSxN-CDK-master}"
+EC2_PROJECT_DIR="${EC2_PROJECT_DIR:-/home/ubuntu/Permission-aware-RAG-FSxN-CDK-github}"
 
 # セキュリティ検証
 validate_security_settings() {
