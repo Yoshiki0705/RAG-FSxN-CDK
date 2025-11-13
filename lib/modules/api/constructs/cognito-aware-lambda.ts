@@ -86,7 +86,6 @@ export interface CognitoAwareLambdaProps {
   /**
    * 環境名
    */
-  environment: string;
 }
 
 /**

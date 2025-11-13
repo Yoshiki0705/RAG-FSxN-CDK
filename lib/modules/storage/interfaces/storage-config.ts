@@ -12,6 +12,16 @@ import * as fsx from 'aws-cdk-lib/aws-fsx';
 import * as efs from 'aws-cdk-lib/aws-efs';
 
 /**
+ * S3バケット個別設定（environment-config.ts互換性のため）
+ */
+export interface S3BucketConfig {
+  enabled?: boolean;
+  bucketName?: string;
+  encryption?: boolean;
+  versioning?: boolean;
+}
+
+/**
  * S3設定
  */
 export interface S3Config {
@@ -38,6 +48,15 @@ export interface S3Config {
   
   /** カスタムバケット */
   readonly customBuckets?: S3CustomBucket[];
+  
+  /** ドキュメントバケット設定（environment-config.ts互換性のため） */
+  readonly documents?: S3BucketConfig;
+  
+  /** バックアップバケット設定（environment-config.ts互換性のため） */
+  readonly backup?: S3BucketConfig;
+  
+  /** 埋め込みバケット設定（environment-config.ts互換性のため） */
+  readonly embeddings?: S3BucketConfig;
 }
 
 /**
@@ -274,6 +293,61 @@ export interface FsxConfig {
   
   /** Lustre固有設定 */
   readonly lustreConfig?: FsxLustreConfig;
+  
+  // storage-construct.ts互換性のための追加プロパティ
+  /** 自動バックアップ保持期間（日） */
+  readonly automaticBackupRetentionDays?: number;
+  
+  /** バックアップ無効化確認フラグ */
+  readonly disableBackupConfirmed?: boolean;
+  
+  /** デプロイメントタイプ */
+  readonly deploymentType?: 'SINGLE_AZ_1' | 'MULTI_AZ_1';
+  
+  /** 優先サブネットID */
+  readonly preferredSubnetId?: string;
+  
+  /** ルートテーブルID */
+  readonly routeTableIds?: string[];
+  
+  /** 日次自動バックアップ開始時刻 */
+  readonly dailyAutomaticBackupStartTime?: string;
+  
+  /** 週次メンテナンス開始時刻 */
+  readonly weeklyMaintenanceStartTime?: string;
+  
+  /** ディスクIOPS設定 */
+  readonly diskIopsConfiguration?: any;
+  
+  /** ファイルシステム名 */
+  readonly fileSystemName?: string;
+  
+  /** SVM設定 */
+  readonly svm?: {
+    name?: string;
+    rootVolumeSecurityStyle?: string;
+    activeDirectoryConfiguration?: any;
+  };
+  
+  /** ボリューム設定 */
+  readonly volumes?: {
+    data?: {
+      enabled: boolean;
+      name?: string;
+      junctionPath?: string;
+      sizeInMegabytes?: number;
+      storageEfficiencyEnabled?: boolean;
+      securityStyle?: string;
+    };
+    database?: {
+      enabled: boolean;
+      name?: string;
+      junctionPath?: string;
+      sizeInMegabytes?: number;
+      storageEfficiencyEnabled?: boolean;
+      securityStyle?: string;
+    };
+  };
 }
 
 /**
@@ -409,8 +483,14 @@ export interface EfsConfig {
   /** プロビジョンドスループット */
   readonly provisionedThroughputPerSecond?: number;
   
+  /** プロビジョンドスループット（MiB/s）- storage-construct.ts互換性 */
+  readonly provisionedThroughputInMibps?: number;
+  
   /** 暗号化有効化 */
   readonly encryption: boolean;
+  
+  /** 暗号化有効化 - storage-construct.ts互換性 */
+  readonly encrypted?: boolean;
   
   /** KMSキーARN */
   readonly kmsKeyArn?: string;
@@ -452,6 +532,9 @@ export interface StorageConfig {
   /** FSx設定 */
   readonly fsx: FsxConfig;
   
+  /** FSx ONTAP設定（environment-config.ts互換性のため） */
+  readonly fsxOntap?: FsxConfig;
+  
   /** EFS設定 */
   readonly efs: EfsConfig;
   
@@ -463,6 +546,9 @@ export interface StorageConfig {
   
   /** コスト最適化 */
   readonly costOptimization?: StorageCostOptimizationConfig;
+  
+  /** タグ設定 */
+  readonly tags?: Record<string, string>;
 }
 
 /**
@@ -553,4 +639,53 @@ export interface StorageCostOptimizationConfig {
   
   /** 推奨事項 */
   readonly recommendations?: boolean;
+}
+/**
+ * ストレージコンストラクト出力
+ */
+export interface StorageOutputs {
+  /** ドキュメントバケット */
+  readonly documentsBucket?: s3.IBucket;
+  readonly documentsBucketName?: string;
+  readonly documentsBucketArn?: string;
+  
+  /** バックアップバケット */
+  readonly backupBucket?: s3.IBucket;
+  readonly backupBucketName?: string;
+  readonly backupBucketArn?: string;
+  
+  /** 埋め込みバケット */
+  readonly embeddingsBucket?: s3.IBucket;
+  readonly embeddingsBucketName?: string;
+  readonly embeddingsBucketArn?: string;
+  
+  /** S3バケット（data-stack.ts互換性） */
+  readonly s3Buckets?: {
+    documents?: s3.IBucket;
+    backup?: s3.IBucket;
+    embeddings?: s3.IBucket;
+  };
+  
+  /** FSxファイルシステム */
+  readonly fsxFileSystem?: fsx.CfnFileSystem;
+  readonly fsxFileSystemId?: string;
+  readonly fsxFileSystemArn?: string;
+  readonly fsxFileSystemDnsName?: string;
+  
+  /** FSx SVM */
+  readonly fsxSvm?: fsx.CfnStorageVirtualMachine;
+  readonly fsxSvmId?: string;
+  
+  /** FSxデータボリューム */
+  readonly fsxDataVolume?: fsx.CfnVolume;
+  readonly fsxDataVolumeId?: string;
+  
+  /** FSxデータベースボリューム */
+  readonly fsxDatabaseVolume?: fsx.CfnVolume;
+  readonly fsxDatabaseVolumeId?: string;
+  
+  /** EFSファイルシステム */
+  readonly efsFileSystem?: efs.FileSystem;
+  readonly efsFileSystemId?: string;
+  readonly efsFileSystemArn?: string;
 }

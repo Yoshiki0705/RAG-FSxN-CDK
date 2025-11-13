@@ -45,6 +45,19 @@
     "tests/**/*",
     "cleanup-backup-*/**/*",
     "**/webapp-stack-fixed.ts",
-    "**/*webapp-stack-fixed*"
+    "**/*webapp-stack-fixed*",
+    "lib/config-legacy/**/*",
+    "lib/config/environments.backup/**/*",
+    "lib/config/mappers.backup/**/*",
+    "development/backups/**/*",
+    "bin/batch-embedding-app.ts",
+    "bin/embedding-batch-deployment-app.ts",
+    "bin/minimal-datastack-app.ts",
+    "bin/networking-stack-only-app.ts",
+    "bin/opensearch-domain-app.ts",
+    "bin/opensearch-multimodal-app.ts",
+    "bin/production-deployment-app-secure.ts",
+    "bin/production-deployment-app.ts",
+    "bin/simple-opensearch-app.ts"
   ]
 }

@@ -22,6 +22,10 @@ interface ChatStore {
   saveHistory: boolean;
   setSaveHistory: (save: boolean) => void;
   
+  // Agentモード設定
+  agentMode: boolean;
+  setAgentMode: (enabled: boolean) => void;
+  
   // 現在のセッション
   currentSession: ChatSession | null;
   setCurrentSession: (session: ChatSession | null) => void;
@@ -46,6 +50,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   // デフォルト設定: 履歴保存は無効
   saveHistory: false,
   setSaveHistory: (save) => set({ saveHistory: save }),
+  
+  // デフォルト設定: Agentモードは無効
+  agentMode: false,
+  setAgentMode: (enabled) => set({ agentMode: enabled }),
   
   currentSession: null,
   setCurrentSession: (session) => set({ currentSession: session }),

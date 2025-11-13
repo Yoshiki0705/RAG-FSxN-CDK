@@ -1,36 +1,58 @@
 import { NextResponse } from 'next/server';
+import { BedrockClient, ListFoundationModelsCommand } from '@aws-sdk/client-bedrock';
 
 export async function GET() {
   try {
-    const models = [
-      {
-        id: 'amazon.nova-pro-v1:0',
-        name: 'Amazon Nova Pro',
-        description: 'High-performance multimodal model',
-        provider: 'Amazon'
-      },
-      {
-        id: 'amazon.nova-lite-v1:0',
-        name: 'Amazon Nova Lite',
-        description: 'Fast and cost-effective model',
-        provider: 'Amazon'
-      },
-      {
-        id: 'anthropic.claude-3-5-sonnet-20241022-v2:0',
-        name: 'Claude 3.5 Sonnet',
-        description: 'Advanced reasoning and analysis',
-        provider: 'Anthropic'
-      }
-    ];
+    const region = process.env.BEDROCK_REGION || 'ap-northeast-1';
     
+    const bedrockClient = new BedrockClient({
+      region: region,
+    });
+
+    const command = new ListFoundationModelsCommand({
+      byOutputModality: 'TEXT',
+    });
+
+    const response = await bedrockClient.send(command);
+    
+    const models = (response.modelSummaries || []).map((model) => ({
+      id: model.modelId || '',
+      name: model.modelName || model.modelId || '',
+      description: `${model.providerName} - ${model.modelId}`,
+      provider: model.providerName || 'Unknown',
+      inputModalities: model.inputModalities || [],
+      outputModalities: model.outputModalities || [],
+      responseStreamingSupported: model.responseStreamingSupported || false,
+    }));
+
+    // 推奨モデルとデフォルトモデルを設定
+    const recommendedModels = [
+      'amazon.nova-pro-v1:0',
+      'anthropic.claude-3-5-sonnet-20241022-v2:0',
+      'deepseek.v3-v1:0',
+    ].filter(id => models.some(m => m.id === id));
+    
+    const defaultModelId = models.find(m => m.id === 'amazon.nova-pro-v1:0')?.id || models[0]?.id || '';
+
     return NextResponse.json({
-      models,
-      timestamp: new Date().toISOString()
+      success: true,
+      data: {
+        models,
+        region,
+        count: models.length,
+        recommendedModels,
+        defaultModelId,
+      },
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
     console.error('Models API error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        success: false,
+        error: 'Failed to fetch models from Bedrock',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

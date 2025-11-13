@@ -29,38 +29,14 @@ export const tokyoProductionConfig: EnvironmentConfig = {
   // ネットワーク設定（本番環境強化）
   networking: {
     vpcCidr: '10.0.0.0/16',
-    maxAzs: 3, // 本番環境では3AZ
-    enablePublicSubnets: true,
-    enablePrivateSubnets: true,
-    enableIsolatedSubnets: true,
-    enableNatGateway: true,
+    availabilityZones: 3, // 本番環境では3AZ
+    natGateways: {
+      enabled: true,
+      count: 3 // 各AZにNAT Gateway
+    },
+    enableVpcFlowLogs: true,
     enableDnsHostnames: true,
-    enableDnsSupport: true,
-    enableFlowLogs: true,
-    vpcEndpoints: {
-      s3: true,
-      dynamodb: true,
-      lambda: false,
-      opensearch: false,
-      // Cognito VPC Endpoint設定（オプション）
-      // CDKコンテキスト変数 `cognitoPrivateEndpoint` で有効/無効を制御可能
-      // デフォルト: false（Public接続モード）
-      cognito: {
-        enabled: false, // デフォルトはPublic接続モード
-        enablePrivateDns: true,
-        subnets: {
-          subnetType: 'PRIVATE_WITH_EGRESS',
-        },
-        securityGroupDescription: 'Security group for Cognito VPC Endpoint',
-        // allowedCidrs: ['10.0.0.0/16'], // 指定しない場合、VPC CIDRが使用される
-      },
-    },
-    securityGroups: {
-      web: true,
-      api: true,
-      database: true,
-      lambda: true,
-    },
+    enableDnsSupport: true
   },
 
   // セキュリティ設定（本番環境強化）
@@ -81,15 +57,36 @@ export const tokyoProductionConfig: EnvironmentConfig = {
       enableLifecyclePolicy: true,
       transitionToIADays: 30,
       transitionToGlacierDays: 90,
-      expirationDays: 2555 // 7年保持（コンプライアンス要件）
+      expirationDays: 2555, // 7年保持（コンプライアンス要件）
+      documents: {
+        encryption: true,
+        versioning: true
+      },
+      backup: {
+        encryption: true,
+        versioning: true
+      },
+      embeddings: {
+        encryption: true,
+        versioning: false
+      }
     },
     fsxOntap: {
-      enabled: true,
+      enabled: false, // 一時的に無効化（VPC依存関係のため）
       storageCapacity: 4096, // 本番環境では大容量
       throughputCapacity: 512, // 本番環境では高スループット
       deploymentType: 'MULTI_AZ_1', // 本番環境では冗長化
-      automaticBackupRetentionDays: 0, // 自動バックアップ無効化（コスト最適化）
-      disableBackupConfirmed: true // 本番環境での無効化を明示的に承認
+      automaticBackupRetentionDays: 30, // 本番環境では長期保持
+      activeDirectory: {
+        enabled: false // デフォルトは無効（必要に応じて有効化）
+      }
+    },
+    efs: {
+      enabled: false, // EFSを無効化（DataStackには含めない）
+      performanceMode: 'generalPurpose',
+      throughputMode: 'provisioned',
+      provisionedThroughputInMibps: 100,
+      encrypted: true
     }
   },
 
@@ -137,15 +134,6 @@ export const tokyoProductionConfig: EnvironmentConfig = {
       maxCapacity: 10,
       desiredCapacity: 2,
       enableManagedInstance: true
-    },
-    // SQLite負荷試験設定
-    sqliteLoadTest: {
-      enabled: false, // 本番環境では通常無効
-      enableWindowsLoadTest: false,
-      scheduleExpression: 'cron(0 2 * * ? *)', // 毎日午前2時
-      maxvCpus: 20,
-      instanceTypes: ['m5.large', 'm5.xlarge'],
-      windowsInstanceType: 't3.medium'
     }
   },
 
@@ -222,15 +210,26 @@ export const tokyoProductionConfig: EnvironmentConfig = {
 
   // タグ設定（本番環境・IAM制限対応）
   tags: {
+    Environment: 'prod',
+    Project: 'permission-aware-rag',
     Owner: 'Platform-Team',
     CostCenter: 'Production',
     Backup: 'Critical',
+    Monitoring: 'Enabled',
     Compliance: 'SOC2+GDPR+HIPAA',
-    DataClassification: 'Confidential'
-    // 他のタグは統合済み：
-    // - SecurityLevel/EncryptionRequired/AuditRequired → Compliance
-    // - Timezone/Region → Environment
-    // - RTO/RPO → Backup
-    // - PerformanceLevel/PerformanceTier → BusinessCriticality
+    DataClassification: 'Confidential',
+    Region: 'ap-northeast-1',
+    Timezone: 'Asia/Tokyo',
+    ComplianceFramework: 'SOC2+GDPR+HIPAA',
+    // オプションタグ
+    BusinessCriticality: 'High',
+    DisasterRecovery: 'Enabled',
+    SecurityLevel: 'High',
+    EncryptionRequired: 'Yes',
+    AuditRequired: 'Yes',
+    PerformanceLevel: 'High',
+    AvailabilityTarget: '99.9%',
+    RPO: '1h',
+    RTO: '4h'
   }
 };

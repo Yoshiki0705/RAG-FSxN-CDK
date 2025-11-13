@@ -58,14 +58,29 @@ export const tokyoDevelopmentConfig: EnvironmentConfig = {
       enableLifecyclePolicy: true,
       transitionToIADays: 30,
       transitionToGlacierDays: 90,
-      expirationDays: 365 // 開発環境では1年保持
+      expirationDays: 365, // 開発環境では1年保持
+      documents: {
+        encryption: true,
+        versioning: true
+      },
+      backup: {
+        encryption: true,
+        versioning: false
+      },
+      embeddings: {
+        encryption: true,
+        versioning: false
+      }
     },
     fsxOntap: {
       enabled: true,
       storageCapacity: 1024, // 開発環境では小容量
       throughputCapacity: 128, // 開発環境では低スループット
       deploymentType: 'SINGLE_AZ_1', // 開発環境では単一AZ
-      automaticBackupRetentionDays: 7 // 開発環境では短期保持
+      automaticBackupRetentionDays: 7, // 開発環境では短期保持
+      activeDirectory: {
+        enabled: false // デフォルトは無効
+      }
     }
   },
 
@@ -113,25 +128,6 @@ export const tokyoDevelopmentConfig: EnvironmentConfig = {
       maxCapacity: 2,
       desiredCapacity: 0,
       enableManagedInstance: false
-    },
-    // SQLite負荷試験設定（開発環境で有効）
-    sqliteLoadTest: {
-      enabled: true, // 開発環境では有効
-      enableWindowsLoadTest: true,
-      fsxFileSystemId: 'fs-0efd9429aa9ba839a',
-      fsxSvmId: 'svm-01b48eb910be1c588',
-      fsxVolumeId: 'fsvol-0413e32de284cd0e4',
-      fsxMountPath: '/sqlite-load-test',
-      fsxNfsEndpoint: 'svm-01b48eb910be1c588.fs-0efd9429aa9ba839a.fsx.ap-northeast-1.amazonaws.com',
-      fsxCifsEndpoint: '10.21.3.131',
-      fsxCifsShareName: 'sqlite-load-test',
-      keyPairName: 'fujiwara-2025',
-      scheduleExpression: 'cron(0 2 * * ? *)', // 毎日午前2時
-      maxvCpus: 20,
-      instanceTypes: ['m5.large', 'm5.xlarge'],
-      windowsInstanceType: 't3.medium',
-      bedrockRegion: 'ap-northeast-1',
-      bedrockModelId: 'amazon.titan-embed-text-v1'
     }
   },
 
@@ -205,10 +201,16 @@ export const tokyoDevelopmentConfig: EnvironmentConfig = {
 
   // タグ設定（開発環境）
   tags: {
+    Environment: 'dev',
+    Project: 'permission-aware-rag',
     Owner: 'Development-Team',
     CostCenter: 'Development',
     Backup: 'Standard',
+    Monitoring: 'Basic',
     Compliance: 'Basic',
-    DataClassification: 'Internal'
+    DataClassification: 'Internal',
+    Region: 'ap-northeast-1',
+    Timezone: 'Asia/Tokyo',
+    ComplianceFramework: 'Basic'
   }
 };

@@ -279,7 +279,7 @@ export class PermissionAwareRAGTags {
   static getStandardConfig(projectName: string, environment: string): TaggingConfig {
     return {
       projectName,
-      environment: environment as Environment,
+      environment,
       department: 'AI-Engineering',
       owner: 'RAG-Team',
       customTags: {

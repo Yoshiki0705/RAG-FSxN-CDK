@@ -38,6 +38,8 @@ export interface DataStackProps extends cdk.StackProps {
   readonly namingGenerator?: any; // Agent Steering準拠命名ジェネレーター（オプション）
   readonly projectName: string; // プロジェクト名（コスト配布用）
   readonly environment: string; // 環境名（コスト配布用）
+  readonly vpc?: any; // VPC（NetworkingStackから）
+  readonly privateSubnetIds?: string[]; // プライベートサブネットID（NetworkingStackから）
 }
 
 /**
@@ -60,9 +62,7 @@ export class DataStack extends cdk.Stack {
   public readonly dynamoDbTableNames: { [key: string]: string } = {};
   
   /** OpenSearchドメインエンドポイント（他スタックからの参照用） */
-  public get openSearchEndpoint(): string | undefined {
-    return this.database?.outputs?.openSearchEndpoint as string | undefined;
-  }
+  public openSearchEndpoint?: string;
 
   /** プロジェクト名（内部参照用） */
   private readonly projectName: string;
@@ -91,12 +91,23 @@ export class DataStack extends cdk.Stack {
     // 注意: 依存関係は main-deployment-stack.ts で一元管理されます
     // セキュリティスタックとの依存関係は親スタックで設定済み
 
+    // VPCをインポート（props.vpcがオブジェクトの場合）
+    let vpc;
+    if (props.vpc && typeof props.vpc === 'object' && 'vpcId' in props.vpc) {
+      const ec2 = require('aws-cdk-lib/aws-ec2');
+      vpc = ec2.Vpc.fromVpcAttributes(this, 'ImportedVpc', props.vpc);
+    } else {
+      vpc = props.vpc;
+    }
+
     // 統合ストレージコンストラクト作成
     this.storage = new StorageConstruct(this, 'Storage', {
       config: props.config.storage,
       projectName: props.projectName,
       environment: props.environment,
       kmsKey: props.securityStack?.kmsKey,
+      vpc: vpc,
+      privateSubnetIds: props.privateSubnetIds,
     });
 
     // 統合データベースコンストラクト作成
@@ -164,6 +175,12 @@ export class DataStack extends cdk.Stack {
             console.warn(`⚠️ 無効なDynamoDBテーブル設定をスキップ: ${name}`);
           }
         });
+      }
+
+      // OpenSearchエンドポイントの設定（型安全性強化）
+      if (this.database.outputs?.openSearchEndpoint && 
+          typeof this.database.outputs.openSearchEndpoint === 'string') {
+        this.openSearchEndpoint = this.database.outputs.openSearchEndpoint;
       }
 
       console.log('🔗 他スタック参照用プロパティ設定完了');

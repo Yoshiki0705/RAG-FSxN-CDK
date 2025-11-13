@@ -6,6 +6,7 @@ import { useChatStore, ChatMessage, ChatSession } from '../../store/useChatStore
 import { ModelSelector } from '../../components/bedrock/ModelSelector';
 import { RegionSelector } from '../../components/bedrock/RegionSelector';
 import { DEFAULT_MODEL_ID, getModelById } from '../../config/bedrock-models';
+import { ThemeToggle } from '../../components/ui/ThemeToggle';
 
 // Markdownライクなテキストをレンダリングするコンポーネント
 function MessageContent({ text }: { text: string }) {
@@ -83,7 +84,9 @@ export default function ChatbotPage() {
     saveChatHistory,
     loadChatHistory,
     chatSessions,
-    addChatSession
+    addChatSession,
+    agentMode,
+    setAgentMode
   } = useChatStore();
 
   useEffect(() => {
@@ -306,6 +309,56 @@ ${saveHistory ? '✅ 履歴保存が有効です。会話は自動保存され�
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const generateAgentResponse = async (query: string): Promise<string> => {
+    try {
+      console.log('Sending request to Bedrock Agent API:', { query: query.substring(0, 100), user: user.username });
+      
+      const response = await fetch('/api/bedrock/agent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: query,
+          userId: user.username,
+          sessionId: currentSession?.id,
+        }),
+      });
+
+      console.log('Bedrock Agent API response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Bedrock Agent API error response:', errorText);
+        throw new Error(`API Error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('Bedrock Agent API response data:', { success: data.success, answerLength: data.answer?.length });
+
+      if (data.success) {
+        return data.answer;
+      } else {
+        throw new Error(data.error || 'Unknown error');
+      }
+    } catch (error) {
+      console.error('Bedrock Agent API Error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      return `**Bedrock Agent API エラーが発生しました**
+
+**エラー詳細:**
+• エラーメッセージ: ${errorMessage}
+• ユーザー: ${user.username}
+• 時刻: ${new Date().toLocaleString('ja-JP')}
+
+**対処方法:**
+1. **ブラウザのコンソールログを確認してください**
+2. **通常モードに切り替えてみてください**
+3. **問題が続く場合は、システム管理者にお問い合わせください**`;
+    }
+  };
+
   const generateRAGResponse = async (query: string): Promise<string> => {
     try {
       console.log('Sending request to Bedrock API:', { query: query.substring(0, 100), user: user.username, modelId: selectedModelId });
@@ -392,8 +445,10 @@ ${saveHistory ? '✅ 履歴保存が有効です。会話は自動保存され�
     setIsLoading(true);
 
     try {
-      // 実際のRAG処理（Bedrock API呼び出し）
-      const responseText = await generateRAGResponse(currentInput);
+      // Agentモードまたは通常モードでRAG処理
+      const responseText = agentMode 
+        ? await generateAgentResponse(currentInput)
+        : await generateRAGResponse(currentInput);
 
       const botResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
@@ -554,6 +609,70 @@ ${saveHistory ? '✅ 履歴保存が有効です。会話は自動保存され�
               <RegionSelector />
             </div>
 
+            {/* 動作モード切り替えセクション */}
+            <div className="p-2 border-b border-gray-200">
+              <h3 className="text-xs font-medium text-gray-700 mb-2">動作モード</h3>
+              <div className="space-y-2">
+                <button
+                  onClick={() => setAgentMode(false)}
+                  className={`w-full text-left px-3 py-2 rounded-md text-xs transition-colors ${
+                    !agentMode
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200 font-medium'
+                      : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2">
+                    <span className="text-base">📚</span>
+                    <div className="flex-1">
+                      <div className="font-medium">Knowledge Base モード</div>
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        ベクトル検索による文書検索
+                      </div>
+                    </div>
+                    {!agentMode && <span className="text-blue-600">✓</span>}
+                  </div>
+                </button>
+                
+                <button
+                  onClick={() => setAgentMode(true)}
+                  className={`w-full text-left px-3 py-2 rounded-md text-xs transition-colors ${
+                    agentMode
+                      ? 'bg-purple-100 text-purple-700 border border-purple-200 font-medium'
+                      : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2">
+                    <span className="text-base">🤖</span>
+                    <div className="flex-1">
+                      <div className="font-medium">Bedrock Agent モード</div>
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        自動アクション実行・最適化検索
+                      </div>
+                    </div>
+                    {agentMode && <span className="text-purple-600">✓</span>}
+                  </div>
+                </button>
+              </div>
+              
+              <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600">
+                {agentMode ? (
+                  <div className="space-y-1">
+                    <div className="font-medium text-purple-700">Agent機能:</div>
+                    <div>• マルチステップ推論</div>
+                    <div>• 自動文書検索</div>
+                    <div>• コンテキスト最適化</div>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <div className="font-medium text-blue-700">Knowledge Base機能:</div>
+                    <div>• ベクトル類似度検索</div>
+                    <div>• 権限ベースフィルタリング</div>
+                    <div>• 高速レスポンス</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* AIモデル選択セクション */}
             <div className="p-2 border-b border-gray-200">
               <ModelSelector
@@ -611,6 +730,11 @@ ${saveHistory ? '✅ 履歴保存が有効です。会話は自動保存され�
                 <div className="flex items-center space-x-2">
                   <h1 className="text-lg font-semibold text-gray-900">RAG Chatbot</h1>
                   <div className="flex items-center space-x-2">
+                    {agentMode && (
+                      <span className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-full font-medium">
+                        🤖 Agent
+                      </span>
+                    )}
                     {saveHistory && (
                       <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full">
                         履歴保存中
@@ -623,6 +747,7 @@ ${saveHistory ? '✅ 履歴保存が有効です。会話は自動保存され�
                 </div>
               </div>
               <div className="flex items-center space-x-3">
+                <ThemeToggle variant="icon" />
                 <span className="text-sm text-gray-600">
                   ようこそ、{user?.username}さん
                 </span>
@@ -668,8 +793,19 @@ ${saveHistory ? '✅ 履歴保存が有効です。会話は自動保存され�
                   <div className="flex items-center space-x-3">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                     <div className="text-sm">
-                      <div>🔍 文書を検索中...</div>
-                      <div className="text-xs text-gray-500 mt-1">AIで回答を生成中...</div>
+                      {agentMode ? (
+                        <>
+                          <div>🤖 Agent処理中...</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            アクション実行 → 文書検索 → 回答生成
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div>🔍 文書を検索中...</div>
+                          <div className="text-xs text-gray-500 mt-1">AIで回答を生成中...</div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -10,9 +10,7 @@ COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.0-x86_64 /lambda-adapt
 
 ENV PORT=3000 
 ENV NODE_ENV=production 
-ENV AWS_LWA_INVOKE_MODE=response_stream
 ENV AWS_LWA_ENABLE_COMPRESSION=true
-ENV AWS_LWA_ASYNC_INIT=true
 ENV HOSTNAME=0.0.0.0
 
 WORKDIR /app

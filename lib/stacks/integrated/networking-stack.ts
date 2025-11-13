@@ -35,8 +35,6 @@ export class NetworkingStack extends cdk.Stack {
   public readonly privateSubnets: cdk.aws_ec2.ISubnet[];
   public readonly isolatedSubnets: cdk.aws_ec2.ISubnet[];
   public readonly securityGroups: { [key: string]: cdk.aws_ec2.SecurityGroup };
-  public readonly cognitoVpcEndpoint?: cdk.aws_ec2.InterfaceVpcEndpoint;
-  public readonly cognitoEndpointSecurityGroup?: cdk.aws_ec2.SecurityGroup;
 
   constructor(scope: Construct, id: string, props: NetworkingStackProps) {
     super(scope, id, props);
@@ -67,10 +65,6 @@ export class NetworkingStack extends cdk.Stack {
       this.privateSubnets = this.networkingConstruct.privateSubnets;
       this.isolatedSubnets = this.networkingConstruct.isolatedSubnets;
       this.securityGroups = this.networkingConstruct.securityGroups;
-      
-      // Cognito VPC Endpoint関連リソースの参照（条件付き）
-      this.cognitoVpcEndpoint = this.networkingConstruct.cognitoVpcEndpoint?.vpcEndpoint;
-      this.cognitoEndpointSecurityGroup = this.networkingConstruct.cognitoEndpointSecurityGroup?.securityGroup;
 
       // CloudFormation出力
       this.createOutputs();
@@ -171,33 +165,6 @@ export class NetworkingStack extends cdk.Stack {
       description: 'Availability Zones',
       exportName: `${this.stackName}-AvailabilityZones`,
     });
-
-    // Cognito VPC Endpoint情報（条件付き）
-    if (this.networkingConstruct.cognitoVpcEndpoint?.vpcEndpoint) {
-      new cdk.CfnOutput(this, 'CognitoVpcEndpointId', {
-        value: this.networkingConstruct.cognitoVpcEndpoint.vpcEndpoint.vpcEndpointId,
-        description: 'Cognito VPC Endpoint ID',
-        exportName: `${this.stackName}-CognitoVpcEndpointId`,
-      });
-
-      // DNS Entries（プライベートDNS有効時）
-      if (this.networkingConstruct.cognitoVpcEndpoint.vpcEndpoint.vpcEndpointDnsEntries) {
-        new cdk.CfnOutput(this, 'CognitoVpcEndpointDnsEntries', {
-          value: cdk.Fn.join(',', this.networkingConstruct.cognitoVpcEndpoint.vpcEndpoint.vpcEndpointDnsEntries),
-          description: 'Cognito VPC Endpoint DNS Entries',
-          exportName: `${this.stackName}-CognitoVpcEndpointDnsEntries`,
-        });
-      }
-    }
-
-    // Cognito Endpoint Security Group情報（条件付き）
-    if (this.networkingConstruct.cognitoEndpointSecurityGroup?.securityGroup) {
-      new cdk.CfnOutput(this, 'CognitoEndpointSecurityGroupId', {
-        value: this.networkingConstruct.cognitoEndpointSecurityGroup.securityGroup.securityGroupId,
-        description: 'Cognito Endpoint Security Group ID',
-        exportName: `${this.stackName}-CognitoEndpointSecurityGroupId`,
-      });
-    }
   }
 
   /**

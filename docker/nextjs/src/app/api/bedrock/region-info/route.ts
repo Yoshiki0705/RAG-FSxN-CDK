@@ -146,56 +146,86 @@ export async function GET(request: NextRequest) {
   try {
     console.log(`[API] Processing region info for: ${currentRegion} (${currentRegionName})`);
     
-    // 1. 新しい設定管理システムを使用してモデル情報を取得
+    // 1. Bedrock APIから直接全モデルを取得（ModelConfigManagerは使用しない）
     let availableModels: ModelAvailability[] = [];
     let unavailableModels: ModelAvailability[] = [];
     let regionModelInfo: RegionModelInfo | null = null;
     
     if (currentRegionSupported) {
       try {
-        // サポート対象リージョンの場合、ModelConfigManagerを使用
-        const models = ModelConfigManager.getAvailableModels(currentRegion);
-        availableModels = models.map(model => convertToModelAvailability(model, true));
+        // Bedrockクライアントで直接全モデルを取得
+        const bedrockClient = new BedrockClient({ region: currentRegion });
+        const command = new ListFoundationModelsCommand({
+          byOutputModality: 'TEXT',
+        });
+        const response = await bedrockClient.send(command);
+        const foundationModels = response.modelSummaries || [];
         
-        // リージョンモデル情報を取得
-        regionModelInfo = ModelConfigManager.getRegionModelInfo(currentRegion);
+        console.log(`[API] Bedrock API returned ${foundationModels.length} models`);
         
-        console.log(`[API] Found ${availableModels.length} available models in ${currentRegion}`);
-      } catch (error) {
-        console.error(`[API] Error getting models for ${currentRegion}:`, error);
+        // プロバイダー名を抽出する関数
+        const extractProvider = (modelId: string): string => {
+          if (modelId.startsWith('amazon.')) return 'Amazon';
+          if (modelId.startsWith('anthropic.')) return 'Anthropic';
+          if (modelId.startsWith('meta.')) return 'Meta';
+          if (modelId.startsWith('cohere.')) return 'Cohere';
+          if (modelId.startsWith('ai21.')) return 'AI21 Labs';
+          if (modelId.startsWith('mistral.')) return 'Mistral AI';
+          if (modelId.startsWith('stability.')) return 'Stability AI';
+          if (modelId.startsWith('deepseek.')) return 'DeepSeek';
+          if (modelId.startsWith('qwen.')) return 'Qwen';
+          return 'Unknown';
+        };
         
-        // フォールバック: Bedrockクライアントで直接取得を試行
-        try {
-          const bedrockClient = new BedrockClient({ region: currentRegion });
-          const command = new ListFoundationModelsCommand({
-            byOutputModality: 'TEXT',
-          });
-          const response = await bedrockClient.send(command);
-          const foundationModels = response.modelSummaries || [];
-          
-          availableModels = foundationModels
-            .filter(model => {
-              const modelId = model.modelId || '';
-              return (
-                model.inputModalities?.includes('TEXT') &&
-                model.outputModalities?.includes('TEXT') &&
-                !modelId.includes('embed') &&
-                !modelId.includes('rerank')
-              );
-            })
-            .map(model => ({
-              modelId: model.modelId || '',
-              modelName: model.modelName || model.modelId || '',
-              modelNameJa: model.modelName || model.modelId || '',
-              provider: 'Unknown',
+        // チャットモデルのみをフィルタリング（埋め込み・rerankモデルを除外）
+        availableModels = foundationModels
+          .filter(model => {
+            const modelId = model.modelId || '';
+            return (
+              model.inputModalities?.includes('TEXT') &&
+              model.outputModalities?.includes('TEXT') &&
+              !modelId.includes('embed') &&
+              !modelId.includes('rerank')
+            );
+          })
+          .map(model => {
+            const modelId = model.modelId || '';
+            const provider = extractProvider(modelId);
+            
+            return {
+              modelId,
+              modelName: model.modelName || modelId,
+              modelNameJa: model.modelName || modelId,
+              provider,
               category: 'chat',
               available: true,
-              testedAt: new Date().toISOString()
-            }));
-          
-          console.log(`[API] Fallback: Found ${availableModels.length} models via Bedrock API`);
-        } catch (bedrockError) {
-          console.error(`[API] Bedrock API fallback failed:`, bedrockError);
+              testedAt: new Date().toISOString(),
+              isRecommended: modelId === 'amazon.nova-pro-v1:0' || 
+                            modelId === 'anthropic.claude-3-5-sonnet-20241022-v2:0' ||
+                            modelId === 'deepseek.v3-v1:0'
+            };
+          });
+        
+        console.log(`[API] Filtered to ${availableModels.length} chat models`);
+        console.log(`[API] Providers: ${[...new Set(availableModels.map(m => m.provider))].join(', ')}`);
+        
+        // リージョンモデル情報を取得（オプション）
+        try {
+          regionModelInfo = ModelConfigManager.getRegionModelInfo(currentRegion);
+        } catch (error) {
+          console.warn(`[API] Could not get region model info:`, error);
+        }
+        
+      } catch (error) {
+        console.error(`[API] Error getting models from Bedrock API:`, error);
+        
+        // エラー時のフォールバック: ModelConfigManagerを使用
+        try {
+          const models = ModelConfigManager.getAvailableModels(currentRegion);
+          availableModels = models.map(model => convertToModelAvailability(model, true));
+          console.log(`[API] Fallback: Using ModelConfigManager with ${availableModels.length} models`);
+        } catch (fallbackError) {
+          console.error(`[API] Fallback also failed:`, fallbackError);
         }
       }
     } else {

@@ -114,9 +114,6 @@ export class FSxN extends Construct {
           `${this.fsxAdminSecret.secretArn}:SecretString:password`
         ).toString(),
         preferredSubnetId: privateSubnets[0],
-        // 自動バックアップ無効化（コスト最適化）
-        automaticBackupRetentionDays: 0,
-        // バックアップ無効時はdailyAutomaticBackupStartTimeを未設定
       },
     });
 

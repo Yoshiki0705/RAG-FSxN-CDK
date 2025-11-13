@@ -60,7 +60,7 @@ let cachedModels: BedrockModel[] | null = null;
 let cachedRecommendedModels: string[] = [];
 let cachedDefaultModelId: string = 'apac.amazon.nova-pro-v1:0';
 let lastFetchTime: number = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5分間キャッシュ
+const CACHE_DURATION = 0; // キャッシュ無効化（常に最新データを取得）
 
 /**
  * Bedrockから動的にモデル一覧を取得

@@ -13,9 +13,13 @@ import { Construct } from 'constructs';
 
 // 統合セキュリティコンストラクト（モジュラーアーキテクチャ）
 import { SecurityConstruct } from '../../modules/security/constructs/security-construct';
+import { BedrockGuardrailsConstruct } from '../../modules/security/constructs/bedrock-guardrails-construct';
 
 // インターフェース
 import { SecurityConfig } from '../../modules/security/interfaces/security-config';
+
+// Guardrailsプリセット
+import { getGuardrailPreset, GuardrailPresetType } from '../../modules/security/config/guardrails-presets';
 
 // タグ設定
 import { TaggingStrategy, PermissionAwareRAGTags } from '../../config/tagging-config';
@@ -25,6 +29,10 @@ export interface SecurityStackProps extends cdk.StackProps {
   readonly namingGenerator?: any; // Agent Steering準拠命名ジェネレーター（オプション）
   readonly projectName: string; // プロジェクト名（コスト配布用）
   readonly environment: string; // 環境名（コスト配布用）
+  
+  // Bedrock Guardrails設定（Phase 5 - エンタープライズオプション）
+  readonly useBedrockGuardrails?: boolean; // Guardrails有効化フラグ
+  readonly guardrailPreset?: GuardrailPresetType; // プリセットタイプ
 }
 
 /**
@@ -42,6 +50,11 @@ export class SecurityStack extends cdk.Stack {
   
   /** WAF WebACL ARN（他スタックからの参照用） */
   public readonly wafWebAclArn?: string;
+  
+  /** Bedrock Guardrails（Phase 5 - エンタープライズオプション） */
+  public readonly bedrockGuardrails?: BedrockGuardrailsConstruct;
+  public readonly guardrailArn?: string;
+  public readonly guardrailId?: string;
 
   constructor(scope: Construct, id: string, props: SecurityStackProps) {
     super(scope, id, props);
@@ -69,6 +82,16 @@ export class SecurityStack extends cdk.Stack {
     this.kmsKey = this.security.kmsKey;
     this.wafWebAclArn = this.security.wafWebAcl?.attrArn;
 
+    // Bedrock Guardrails統合（Phase 5 - エンタープライズオプション）
+    const useBedrockGuardrails = this.node.tryGetContext('useBedrockGuardrails') ?? props.useBedrockGuardrails ?? false;
+    if (useBedrockGuardrails) {
+      console.log('🛡️ Bedrock Guardrails有効化...');
+      this.bedrockGuardrails = this.createBedrockGuardrails(props);
+      this.guardrailArn = this.bedrockGuardrails.guardrailArn;
+      this.guardrailId = this.bedrockGuardrails.guardrailId;
+      console.log('✅ Bedrock Guardrails作成完了');
+    }
+
     // スタック出力
     this.createOutputs();
 
@@ -76,6 +99,28 @@ export class SecurityStack extends cdk.Stack {
     this.addStackTags();
 
     console.log('✅ SecurityStack初期化完了');
+  }
+
+  /**
+   * Bedrock Guardrails作成（Phase 5 - エンタープライズオプション）
+   */
+  private createBedrockGuardrails(props: SecurityStackProps): BedrockGuardrailsConstruct {
+    const presetType = this.node.tryGetContext('guardrailPreset') ?? props.guardrailPreset ?? 'standard';
+    const preset = getGuardrailPreset(presetType);
+
+    return new BedrockGuardrailsConstruct(this, 'BedrockGuardrails', {
+      enabled: true,
+      projectName: props.projectName,
+      environment: props.environment,
+      guardrailName: `${props.projectName}-${props.environment}-guardrails`,
+      description: preset.description,
+      contentPolicyConfig: preset.contentPolicyConfig,
+      topicPolicyConfig: preset.topicPolicyConfig,
+      sensitiveInformationPolicyConfig: preset.sensitiveInformationPolicyConfig,
+      wordPolicyConfig: preset.wordPolicyConfig,
+      blockedInputMessaging: preset.blockedInputMessaging,
+      blockedOutputsMessaging: preset.blockedOutputsMessaging,
+    });
   }
 
   /**
@@ -125,6 +170,27 @@ export class SecurityStack extends cdk.Stack {
         value: this.security.cloudTrail.trailArn,
         description: 'CloudTrail ARN',
         exportName: `${this.stackName}-CloudTrailArn`,
+      });
+    }
+
+    // Bedrock Guardrails出力（存在する場合のみ）
+    if (this.bedrockGuardrails) {
+      new cdk.CfnOutput(this, 'GuardrailArn', {
+        value: this.bedrockGuardrails.guardrailArn!,
+        description: 'Bedrock Guardrail ARN',
+        exportName: `${this.stackName}-GuardrailArn`,
+      });
+
+      new cdk.CfnOutput(this, 'GuardrailId', {
+        value: this.bedrockGuardrails.guardrailId!,
+        description: 'Bedrock Guardrail ID',
+        exportName: `${this.stackName}-GuardrailId`,
+      });
+
+      new cdk.CfnOutput(this, 'GuardrailVersion', {
+        value: this.bedrockGuardrails.guardrailVersion!,
+        description: 'Bedrock Guardrail Version',
+        exportName: `${this.stackName}-GuardrailVersion`,
       });
     }
 

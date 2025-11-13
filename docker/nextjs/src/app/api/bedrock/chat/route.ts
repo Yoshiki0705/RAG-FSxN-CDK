@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
+import {
+  BedrockRuntimeClient,
+  InvokeModelCommand,
+} from '@aws-sdk/client-bedrock-runtime';
 
 // 型定義
 interface PermissionResult {
@@ -25,6 +29,10 @@ const lambdaClient = new LambdaClient({
   region: process.env.AWS_REGION || 'ap-northeast-1',
   maxAttempts: 3,
   requestTimeout: 5000
+});
+
+const bedrockClient = new BedrockRuntimeClient({
+  region: process.env.BEDROCK_REGION || process.env.AWS_REGION || 'ap-northeast-1',
 });
 
 // ユーティリティ関数
@@ -89,14 +97,85 @@ async function checkPermissions(userId: string): Promise<PermissionResult> {
   }
 }
 
+async function invokeBedrockModel(
+  modelId: string,
+  prompt: string
+): Promise<string> {
+  try {
+    console.log('🤖 Bedrock呼び出し:', { modelId, promptLength: prompt.length });
+
+    // モデルIDに応じたペイロード構築
+    let payload: any;
+    
+    if (modelId.startsWith('anthropic.')) {
+      // Claude系モデル
+      payload = {
+        anthropic_version: 'bedrock-2023-05-31',
+        max_tokens: 2000,
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+      };
+    } else if (modelId.startsWith('amazon.')) {
+      // Amazon Nova系モデル
+      payload = {
+        messages: [
+          {
+            role: 'user',
+            content: [{ text: prompt }],
+          },
+        ],
+        inferenceConfig: {
+          max_new_tokens: 2000,
+          temperature: 0.7,
+        },
+      };
+    } else {
+      // その他のモデル（汎用フォーマット）
+      payload = {
+        prompt: prompt,
+        max_tokens: 2000,
+        temperature: 0.7,
+      };
+    }
+
+    const command = new InvokeModelCommand({
+      modelId: modelId,
+      contentType: 'application/json',
+      accept: 'application/json',
+      body: JSON.stringify(payload),
+    });
+
+    const response = await bedrockClient.send(command);
+    const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+
+    console.log('✅ Bedrock応答受信:', { modelId, responseLength: JSON.stringify(responseBody).length });
+
+    // モデルIDに応じたレスポンス解析
+    if (modelId.startsWith('anthropic.')) {
+      return responseBody.content[0].text;
+    } else if (modelId.startsWith('amazon.')) {
+      return responseBody.output.message.content[0].text;
+    } else {
+      return responseBody.completion || responseBody.text || JSON.stringify(responseBody);
+    }
+  } catch (error) {
+    console.error('❌ Bedrock呼び出しエラー:', error);
+    throw error;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { message, userId } = await request.json();
+    const { message, userId, modelId } = await request.json();
     const clientIP = getClientIpAddress(request);
     const logContext = createLogContext(userId, clientIP);
     
     console.log('🔐 Bedrock API called', logContext);
-    console.log('Request:', { message: message?.substring(0, 50), userId });
+    console.log('Request:', { message: message?.substring(0, 50), userId, modelId });
 
     // 入力値検証
     try {
@@ -126,10 +205,22 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ 権限チェック通過');
 
+    // 実際のBedrock APIを呼び出し
+    const selectedModelId = modelId || 'amazon.nova-pro-v1:0';
+    
+    const prompt = `あなたは親切で知識豊富なAIアシスタントです。以下の質問に日本語で回答してください。
+
+質問: ${message}
+
+回答:`;
+
+    const answer = await invokeBedrockModel(selectedModelId, prompt);
+
     return NextResponse.json({
       success: true,
-      answer: `こんにちは、${userId}さん！高度権限制御システムが正常に動作しています。権限レベル: ${permissionResult.userPermissions?.permissionLevel || '基本'}。質問: ${message}`,
+      answer: answer,
       userId: userId,
+      modelId: selectedModelId,
       timestamp: new Date().toISOString(),
       securityInfo: {
         permissionCheckPassed: true,

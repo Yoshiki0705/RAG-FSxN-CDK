@@ -1,0 +1,181 @@
+"use strict";
+/**
+ * SecurityStack - 統合セキュリティスタック（モジュラーアーキテクチャ対応）
+ *
+ * 機能:
+ * - 統合セキュリティコンストラクトによる一元管理
+ * - KMS・WAF・GuardDuty・CloudTrail・IAMの統合
+ * - Agent Steering準拠命名規則対応
+ * - 個別スタックデプロイ完全対応
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SecurityStack = void 0;
+const cdk = __importStar(require("aws-cdk-lib"));
+// 統合セキュリティコンストラクト（モジュラーアーキテクチャ）
+const security_construct_1 = require("../../modules/security/constructs/security-construct");
+const bedrock_guardrails_construct_1 = require("../../modules/security/constructs/bedrock-guardrails-construct");
+// Guardrailsプリセット
+const guardrails_presets_1 = require("../../modules/security/config/guardrails-presets");
+// タグ設定
+const tagging_config_1 = require("../../config/tagging-config");
+/**
+ * 統合セキュリティスタック（モジュラーアーキテクチャ対応）
+ *
+ * 統合セキュリティコンストラクトによる一元管理
+ * 個別スタックデプロイ完全対応
+ */
+class SecurityStack extends cdk.Stack {
+    constructor(scope, id, props) {
+        super(scope, id, props);
+        console.log('🔒 SecurityStack初期化開始...');
+        console.log('📝 スタック名:', id);
+        console.log('🏷️ Agent Steering準拠:', props.namingGenerator ? 'Yes' : 'No');
+        // コスト配布タグの適用
+        const taggingConfig = tagging_config_1.PermissionAwareRAGTags.getStandardConfig(props.projectName, props.environment);
+        tagging_config_1.TaggingStrategy.applyTagsToStack(this, taggingConfig);
+        // 統合セキュリティコンストラクト作成
+        this.security = new security_construct_1.SecurityConstruct(this, 'Security', {
+            config: props.config.security,
+            projectName: props.config.project.name,
+            environment: props.config.environment,
+            namingGenerator: props.namingGenerator,
+        });
+        // 他スタックからの参照用プロパティ設定
+        this.kmsKey = this.security.kmsKey;
+        this.wafWebAclArn = this.security.wafWebAcl?.attrArn;
+        // Bedrock Guardrails統合（Phase 5 - エンタープライズオプション）
+        const useBedrockGuardrails = this.node.tryGetContext('useBedrockGuardrails') ?? props.useBedrockGuardrails ?? false;
+        if (useBedrockGuardrails) {
+            console.log('🛡️ Bedrock Guardrails有効化...');
+            this.bedrockGuardrails = this.createBedrockGuardrails(props);
+            this.guardrailArn = this.bedrockGuardrails.guardrailArn;
+            this.guardrailId = this.bedrockGuardrails.guardrailId;
+            console.log('✅ Bedrock Guardrails作成完了');
+        }
+        // スタック出力
+        this.createOutputs();
+        // タグ設定
+        this.addStackTags();
+        console.log('✅ SecurityStack初期化完了');
+    }
+    /**
+     * Bedrock Guardrails作成（Phase 5 - エンタープライズオプション）
+     */
+    createBedrockGuardrails(props) {
+        const presetType = this.node.tryGetContext('guardrailPreset') ?? props.guardrailPreset ?? 'standard';
+        const preset = (0, guardrails_presets_1.getGuardrailPreset)(presetType);
+        return new bedrock_guardrails_construct_1.BedrockGuardrailsConstruct(this, 'BedrockGuardrails', {
+            enabled: true,
+            projectName: props.projectName,
+            environment: props.environment,
+            guardrailName: `${props.projectName}-${props.environment}-guardrails`,
+            description: preset.description,
+            contentPolicyConfig: preset.contentPolicyConfig,
+            topicPolicyConfig: preset.topicPolicyConfig,
+            sensitiveInformationPolicyConfig: preset.sensitiveInformationPolicyConfig,
+            wordPolicyConfig: preset.wordPolicyConfig,
+            blockedInputMessaging: preset.blockedInputMessaging,
+            blockedOutputsMessaging: preset.blockedOutputsMessaging,
+        });
+    }
+    /**
+     * スタック出力作成（個別デプロイ対応）
+     */
+    createOutputs() {
+        // KMSキー出力（他スタックからの参照用）
+        new cdk.CfnOutput(this, 'KmsKeyId', {
+            value: this.security.kmsKey.keyId,
+            description: 'Security KMS Key ID',
+            exportName: `${this.stackName}-KmsKeyId`,
+        });
+        new cdk.CfnOutput(this, 'KmsKeyArn', {
+            value: this.security.kmsKey.keyArn,
+            description: 'Security KMS Key ARN',
+            exportName: `${this.stackName}-KmsKeyArn`,
+        });
+        // WAF WebACL出力（存在する場合のみ）
+        if (this.security.wafWebAcl) {
+            new cdk.CfnOutput(this, 'WafWebAclId', {
+                value: this.security.wafWebAcl.attrId,
+                description: 'WAF Web ACL ID',
+                exportName: `${this.stackName}-WafWebAclId`,
+            });
+            new cdk.CfnOutput(this, 'WafWebAclArn', {
+                value: this.security.wafWebAcl.attrArn,
+                description: 'WAF Web ACL ARN',
+                exportName: `${this.stackName}-WafWebAclArn`,
+            });
+        }
+        // GuardDuty出力（存在する場合のみ）
+        if (this.security.guardDutyDetector) {
+            new cdk.CfnOutput(this, 'GuardDutyDetectorId', {
+                value: this.security.guardDutyDetector.attrId,
+                description: 'GuardDuty Detector ID',
+                exportName: `${this.stackName}-GuardDutyDetectorId`,
+            });
+        }
+        // CloudTrail出力（存在する場合のみ）
+        if (this.security.cloudTrail) {
+            new cdk.CfnOutput(this, 'CloudTrailArn', {
+                value: this.security.cloudTrail.trailArn,
+                description: 'CloudTrail ARN',
+                exportName: `${this.stackName}-CloudTrailArn`,
+            });
+        }
+        // Bedrock Guardrails出力（存在する場合のみ）
+        if (this.bedrockGuardrails) {
+            new cdk.CfnOutput(this, 'GuardrailArn', {
+                value: this.bedrockGuardrails.guardrailArn,
+                description: 'Bedrock Guardrail ARN',
+                exportName: `${this.stackName}-GuardrailArn`,
+            });
+            new cdk.CfnOutput(this, 'GuardrailId', {
+                value: this.bedrockGuardrails.guardrailId,
+                description: 'Bedrock Guardrail ID',
+                exportName: `${this.stackName}-GuardrailId`,
+            });
+            new cdk.CfnOutput(this, 'GuardrailVersion', {
+                value: this.bedrockGuardrails.guardrailVersion,
+                description: 'Bedrock Guardrail Version',
+                exportName: `${this.stackName}-GuardrailVersion`,
+            });
+        }
+        console.log('📤 SecurityStack出力値作成完了');
+    }
+    /**
+     * スタックタグ設定（Agent Steering準拠）
+     */
+    addStackTags() {
+        cdk.Tags.of(this).add('Module', 'Security');
+        cdk.Tags.of(this).add('StackType', 'Integrated');
+        cdk.Tags.of(this).add('Architecture', 'Modular');
+        cdk.Tags.of(this).add('ManagedBy', 'CDK');
+        cdk.Tags.of(this).add('SecurityCompliance', 'Enabled');
+        cdk.Tags.of(this).add('IndividualDeploySupport', 'Yes');
+        console.log('🏷️ SecurityStackタグ設定完了');
+    }
+}
+exports.SecurityStack = SecurityStack;

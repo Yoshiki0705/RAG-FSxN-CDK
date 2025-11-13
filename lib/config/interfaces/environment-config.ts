@@ -53,6 +53,13 @@ export interface SecurityConfig {
 export interface StorageConfig {
   s3: S3Config;
   fsxOntap: FsxOntapConfig;
+  tags?: Record<string, string>;
+}
+
+export interface S3BucketConfig {
+  bucketName?: string;
+  encryption?: boolean;
+  versioning?: boolean;
 }
 
 export interface S3Config {
@@ -61,6 +68,9 @@ export interface S3Config {
   transitionToIADays: number;
   transitionToGlacierDays: number;
   expirationDays: number;
+  documents?: S3BucketConfig;
+  backup?: S3BucketConfig;
+  embeddings?: S3BucketConfig;
 }
 
 export interface FsxOntapConfig {
@@ -69,7 +79,11 @@ export interface FsxOntapConfig {
   throughputCapacity: number;
   deploymentType: string;
   automaticBackupRetentionDays: number;
-  disableBackupConfirmed?: boolean; // 本番環境でのバックアップ無効化承認フラグ
+  activeDirectory?: {
+    enabled: boolean;
+    domainName?: string;
+    dnsIps?: string[];
+  };
 }
 
 export interface DatabaseConfig {
