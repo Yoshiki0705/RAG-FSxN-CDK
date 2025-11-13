@@ -1,219 +1,242 @@
 #!/usr/bin/env node
-/**
- * DataStack専用エントリーポイント
- * 
- * 機能:
- * - ストレージ・データベースリソースの管理
- * - FSx for NetApp ONTAP設定管理
- * - S3・DynamoDB・OpenSearch統合
- * 
- * 使用方法:
- *   export PROJECT_NAME=permission-aware-rag
- *   export ENVIRONMENT=prod
- *   export CDK_DEFAULT_ACCOUNT=533267025162
- *   export CDK_DEFAULT_REGION=ap-northeast-1
- *   npx cdk deploy DataStack --app "npx ts-node bin/data-stack-app.ts"
- */
-
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as efs from 'aws-cdk-lib/aws-efs';
 import { DataStack } from '../lib/stacks/integrated/data-stack';
-import { tokyoProductionConfig } from '../lib/config/environments/tokyo-production-config';
-import { TaggingStrategy, PermissionAwareRAGTags } from '../lib/config/tagging-config';
+
+/**
+ * DataStack専用CDKアプリケーション
+ * 
+ * NetworkingStack統合完了後のDataStackデプロイ用エントリーポイント
+ * 
+ * 前提条件:
+ * - NetworkingStack: デプロイ済み（UPDATE_COMPLETE）
+ * - SecurityStack: デプロイ済み（CREATE_COMPLETE）
+ */
 
 const app = new cdk.App();
 
-// プロジェクト設定の取得と検証
-const projectName = process.env.PROJECT_NAME || tokyoProductionConfig.project.name;
-const environment = process.env.ENVIRONMENT || tokyoProductionConfig.environment;
-const region = process.env.CDK_DEFAULT_REGION || tokyoProductionConfig.region;
-const account = process.env.CDK_DEFAULT_ACCOUNT;
+// 環境設定
+const env = {
+  account: process.env.CDK_DEFAULT_ACCOUNT || '178625946981',
+  region: process.env.CDK_DEFAULT_REGION || 'ap-northeast-1',
+};
 
-// 必須環境変数の検証
-if (!account) {
-  console.error('❌ エラー: CDK_DEFAULT_ACCOUNT環境変数が設定されていません');
-  process.exit(1);
-}
+// プロジェクト設定
+const projectName = 'permission-aware-rag';
+const environment = 'prod';
+const regionPrefix = 'TokyoRegion';
 
-console.log(`🚀 DataStackデプロイ設定:`);
-console.log(`   プロジェクト名: ${projectName}`);
-console.log(`   環境: ${environment}`);
-console.log(`   リージョン: ${region}`);
-console.log(`   アカウント: ${account}`);
+// NetworkingStackからのVPC情報（CloudFormation出力値から取得）
+const vpcConfig = {
+  vpcId: 'vpc-09aa251d6db52b1fc',
+  availabilityZones: ['ap-northeast-1a', 'ap-northeast-1c', 'ap-northeast-1d'],
+  publicSubnetIds: ['subnet-06a00a8866d09b912', 'subnet-0d7c7e43c1325cd3b', 'subnet-06df589d2ed2a5fc0'],
+  privateSubnetIds: ['subnet-0a84a16a1641e970f', 'subnet-0c4599b4863ff4d33', 'subnet-0c9ad18a58c06e7c5'],
+  vpcCidrBlock: '10.21.0.0/16',
+};
 
-// アプリケーションレベルでのタグ設定
-const taggingConfig = PermissionAwareRAGTags.getStandardConfig(projectName, environment);
-const environmentConfig = PermissionAwareRAGTags.getEnvironmentConfig(environment);
-
-// 全体タグの適用
-Object.entries(taggingConfig.customTags || {}).forEach(([key, value]) => {
-  cdk.Tags.of(app).add(key, value);
-});
-
-Object.entries(environmentConfig.customTags || {}).forEach(([key, value]) => {
-  cdk.Tags.of(app).add(key, value);
-});
-
-// コスト配布タグの適用
-cdk.Tags.of(app).add('cost', projectName);
-cdk.Tags.of(app).add('Environment', environment);
-cdk.Tags.of(app).add('Project', projectName);
-cdk.Tags.of(app).add('CDK-Application', 'Permission-aware-RAG-FSxN-DataStack');
-cdk.Tags.of(app).add('Management-Method', 'AWS-CDK');
-
-// DataStack設定の準備
+// DataStack完全設定（型定義に完全準拠）
 const dataStackConfig = {
+  // ストレージ設定（StorageConfig完全準拠）
   storage: {
+    // タグ設定（StorageConstruct互換性のため）
+    tags: {
+      StorageType: 'Hybrid',
+      BackupEnabled: 'true',
+      EncryptionEnabled: 'true',
+      DataClassification: 'Confidential',
+      RetentionPeriod: '365days',
+    },
+    // S3設定（必須）
     s3: {
+      encryption: {
+        enabled: true,
+        kmsManaged: true,
+        bucketKeyEnabled: true,
+      },
+      versioning: true,
+      lifecycle: {
+        enabled: true,
+        transitionToIA: 30,
+        transitionToGlacier: 90,
+        deleteAfter: 365,
+        abortIncompleteMultipartUpload: 7,
+      },
+      publicAccess: {
+        blockPublicRead: true,
+        blockPublicWrite: true,
+        blockPublicAcls: true,
+        restrictPublicBuckets: true,
+      },
+      // 個別バケット設定（environment-config.ts互換）
       documents: {
         enabled: true,
-        bucketName: `${projectName}-${environment}-documents-${account}`,
-        versioning: tokyoProductionConfig.storage.s3.enableVersioning,
-        encryption: {
-          enabled: true,
-        },
-        lifecycle: {
-          enabled: tokyoProductionConfig.storage.s3.enableLifecyclePolicy,
-          transitionToIADays: tokyoProductionConfig.storage.s3.transitionToIADays,
-          transitionToGlacierDays: tokyoProductionConfig.storage.s3.transitionToGlacierDays,
-          expirationDays: tokyoProductionConfig.storage.s3.expirationDays,
-        },
+        bucketName: `${projectName}-${environment}-documents`,
+        encryption: true,
+        versioning: true,
       },
       backup: {
         enabled: true,
-        bucketName: `${projectName}-${environment}-backup-${account}`,
+        bucketName: `${projectName}-${environment}-backup`,
+        encryption: true,
         versioning: true,
-        encryption: {
-          enabled: true,
-        },
-        lifecycle: {
-          enabled: true,
-          transitionToIADays: 30,
-          transitionToGlacierDays: 90,
-          expirationDays: 365,
-        },
       },
       embeddings: {
         enabled: true,
-        bucketName: `${projectName}-${environment}-embeddings-${account}`,
+        bucketName: `${projectName}-${environment}-embeddings`,
+        encryption: true,
         versioning: false,
-        encryption: {
-          enabled: true,
-        },
-        lifecycle: {
-          enabled: true,
-          transitionToIADays: 30,
-          transitionToGlacierDays: 90,
-          expirationDays: 180,
-        },
       },
     },
+    // FSx設定（一時無効化）
+    fsx: {
+      enabled: false,
+      fileSystemType: 'ONTAP' as const,
+      storageCapacity: 1024,
+      throughputCapacity: 128,
+      automaticBackupRetentionDays: 0,
+      disableBackupConfirmed: true,
+    },
+    // FSx ONTAP設定（environment-config.ts互換性のため）
     fsxOntap: {
-      enabled: false, // 既存のFSxリソースを使用するため無効化
-      storageCapacity: tokyoProductionConfig.storage.fsxOntap.storageCapacity,
-      throughputCapacity: tokyoProductionConfig.storage.fsxOntap.throughputCapacity,
-      deploymentType: tokyoProductionConfig.storage.fsxOntap.deploymentType,
-      automaticBackupRetentionDays: tokyoProductionConfig.storage.fsxOntap.automaticBackupRetentionDays,
-      disableBackupConfirmed: tokyoProductionConfig.storage.fsxOntap.disableBackupConfirmed,
-      dailyAutomaticBackupStartTime: tokyoProductionConfig.storage.fsxOntap.automaticBackupRetentionDays > 0 ? '01:00' : undefined,
-      weeklyMaintenanceStartTime: '1:01:00',
-      preferredSubnetId: undefined,
-      routeTableIds: [],
-      diskIopsConfiguration: {
-        mode: 'AUTOMATIC',
-      },
-      svm: {
-        name: `${projectName}-${environment}-svm`,
-        rootVolumeSecurityStyle: 'UNIX',
-      },
-      volumes: {
-        data: {
-          enabled: true,
-          name: `${projectName.replace(/-/g, '_')}_${environment}_data`,
-          junctionPath: '/data',
-          sizeInMegabytes: 102400,
-          storageEfficiencyEnabled: true,
-          securityStyle: 'UNIX',
-        },
-        database: {
-          enabled: true,
-          name: `${projectName.replace(/-/g, '_')}_${environment}_database`,
-          junctionPath: '/database',
-          sizeInMegabytes: 51200,
-          storageEfficiencyEnabled: true,
-          securityStyle: 'UNIX',
-        },
-      },
+      enabled: false,
+      fileSystemType: 'ONTAP' as const,
+      storageCapacity: 1024,
+      throughputCapacity: 128,
+      automaticBackupRetentionDays: 0,
+      disableBackupConfirmed: true,
     },
+    // EFS設定（オプション）
     efs: {
       enabled: false,
-      performanceMode: 'generalPurpose',
-      throughputMode: 'bursting',
-      encrypted: true,
-    },
-    tags: {
-      StorageType: 'S3+FSx+EFS',
-      BackupEnabled: true,
-      EncryptionEnabled: true,
-      DataClassification: 'Confidential',
-      RetentionPeriod: '7years',
+      performanceMode: efs.PerformanceMode.GENERAL_PURPOSE,
+      throughputMode: efs.ThroughputMode.BURSTING,
+      encryption: true,
     },
   },
+  
+  // データベース設定（DatabaseConfig完全準拠）
   database: {
-    dynamodb: {
-      enabled: false, // 既存のDynamoDBテーブルを使用
-      tables: {
-        session: {
-          enabled: false,
+    // DynamoDB設定（必須）
+    dynamoDb: {
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: {
+        enabled: true,
+        kmsManaged: true,
+      },
+      pointInTimeRecovery: true,
+      streams: {
+        enabled: false,
+        streamSpecification: dynamodb.StreamViewType.NEW_AND_OLD_IMAGES,
+      },
+      backup: {
+        continuousBackups: true,
+        deletionProtection: true,
+      },
+      customTables: [
+        {
+          tableName: `${projectName}-${environment}-sessions`,
+          partitionKey: {
+            name: 'sessionId',
+            type: dynamodb.AttributeType.STRING,
+          },
+          sortKey: {
+            name: 'timestamp',
+            type: dynamodb.AttributeType.NUMBER,
+          },
+          ttl: {
+            enabled: true,
+            attributeName: 'expiresAt',
+          },
+          billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+          encryption: {
+            enabled: true,
+            kmsManaged: true,
+          },
+          pointInTimeRecovery: true,
         },
-        user: {
-          enabled: false,
+        {
+          tableName: `${projectName}-${environment}-users`,
+          partitionKey: {
+            name: 'userId',
+            type: dynamodb.AttributeType.STRING,
+          },
+          billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+          encryption: {
+            enabled: true,
+            kmsManaged: true,
+          },
+          pointInTimeRecovery: true,
         },
-        document: {
-          enabled: false,
-        },
+      ],
+    },
+    // OpenSearch設定（必須）
+    openSearch: {
+      enabled: false,
+      serverless: true,
+      encryption: {
+        enabled: true,
+        kmsManaged: true,
       },
     },
-    openSearch: {
-      enabled: false, // 既存のOpenSearchを使用
-      collectionName: `${projectName}-${environment}-collection`,
-      standbyReplicas: 'DISABLED',
-      indexName: 'documents',
-    },
+    // RDS設定（必須）
     rds: {
       enabled: false,
+      engine: 'postgres' as any,
+      instanceClass: 'db.t3.micro' as any,
+      instanceSize: 'SMALL' as any,
+      allocatedStorage: 20,
+      multiAz: false,
+      encryption: {
+        enabled: true,
+        kmsManaged: true,
+      },
+      backup: {
+        automaticBackup: true,
+        retentionDays: 7,
+        deletionProtection: false,
+      },
     },
   },
 };
 
-// DataStackのデプロイ
-try {
-  const dataStack = new DataStack(app, 'DataStack', {
-    config: dataStackConfig as any,
-    projectName,
-    environment,
-    env: {
-      account,
-      region,
-    },
-  });
-
-  console.log(`✅ スタック "${dataStack.stackName}" を正常に初期化しました`);
-  console.log(`📝 FSx設定:`);
-  console.log(`   - automaticBackupRetentionDays: ${tokyoProductionConfig.storage.fsxOntap.automaticBackupRetentionDays}`);
-  console.log(`   - disableBackupConfirmed: ${tokyoProductionConfig.storage.fsxOntap.disableBackupConfirmed}`);
+// DataStack作成
+const dataStack = new DataStack(app, `${regionPrefix}-${projectName}-${environment}-Data`, {
+  env,
+  description: 'Data and Storage Stack - S3 and DynamoDB (FSx ONTAP temporarily disabled)',
   
-} catch (error) {
-  console.error('❌ スタック初期化エラー:', error);
-  process.exit(1);
-}
+  // 統合設定
+  config: dataStackConfig,
+  
+  // VPC設定（NetworkingStackから）
+  vpc: vpcConfig,
+  privateSubnetIds: vpcConfig.privateSubnetIds,
+  
+  // プロジェクト設定
+  projectName,
+  environment,
+  
+  // タグ設定
+  tags: {
+    Project: projectName,
+    Environment: environment,
+    ManagedBy: 'CDK',
+    Stack: 'DataStack',
+    Region: env.region,
+    DeployedBy: 'DataStackApp',
+    NamingCompliance: 'AgentSteering',
+  },
+});
 
-// CDK合成実行
-try {
-  console.log('🔄 CloudFormationテンプレート合成中...');
-  app.synth();
-  console.log('✅ CloudFormationテンプレート合成完了');
-} catch (error) {
-  console.error('❌ CDK合成エラー:', error);
-  process.exit(1);
-}
+// グローバルタグ適用
+cdk.Tags.of(app).add('Project', projectName);
+cdk.Tags.of(app).add('Environment', environment);
+cdk.Tags.of(app).add('ManagedBy', 'CDK');
+cdk.Tags.of(app).add('Architecture', 'Modular');
+cdk.Tags.of(app).add('Region', env.region);
+cdk.Tags.of(app).add('CreatedBy', 'DataStackApp');
+cdk.Tags.of(app).add('NamingCompliance', 'AgentSteering');
+
+app.synth();

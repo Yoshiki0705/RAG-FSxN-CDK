@@ -24,12 +24,8 @@
 
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
-import { NetworkingStack } from '../lib/stacks/integrated/networking-stack';
-import { SecurityStack } from '../lib/stacks/integrated/security-stack';
-import { DataStack } from '../lib/stacks/integrated/data-stack';
 import { EmbeddingStack } from '../lib/stacks/integrated/embedding-stack';
 import { TaggingStrategy, PermissionAwareRAGTags } from '../lib/config/tagging-config';
-import { tokyoProductionConfig } from '../lib/config/environments/tokyo-production-config';
 
 const app = new cdk.App();
 
@@ -78,54 +74,29 @@ cdk.Tags.of(app).add('Project', projectName);
 cdk.Tags.of(app).add('CDK-Application', 'Permission-aware-RAG-FSxN');
 cdk.Tags.of(app).add('Management-Method', 'AWS-CDK');
 
-// 1. NetworkingStack - VPC・サブネット・VPC Endpoint
-const networkingStack = new NetworkingStack(app, 'NetworkingStack', {
-  config: tokyoProductionConfig.networking,
-  projectName,
-  environment: environment as 'dev' | 'staging' | 'prod' | 'test',
-  env: { account, region },
-});
-
-// 2. SecurityStack - IAM・KMS・WAF
-const securityStack = new SecurityStack(app, 'SecurityStack', {
-  config: tokyoProductionConfig.security,
-  projectName,
-  environment,
-  env: { account, region },
-});
-securityStack.addDependency(networkingStack);
-
-// 3. DataStack - S3・DynamoDB・OpenSearch・FSx
-const dataStack = new DataStack(app, 'DataStack', {
-  config: {
-    storage: tokyoProductionConfig.storage,
-    database: tokyoProductionConfig.database,
-  },
-  securityStack,
-  projectName,
-  environment,
-  env: { account, region },
-});
-dataStack.addDependency(securityStack);
-
-// 4. EmbeddingStack - Embedding処理
+// Embedding Batch統合スタックのデプロイ
 try {
   const embeddingStack = new EmbeddingStack(app, 'EmbeddingStack', {
-    computeConfig: {
-      // CDKコンテキストから設定を取得（パフォーマンス最適化）
-      enableBatch: app.node.tryGetContext('embedding:enableAwsBatch') ?? true,
-      enableEcs: app.node.tryGetContext('embedding:enableEcsOnEC2') ?? false,
-      enableSpotFleet: app.node.tryGetContext('embedding:enableSpotFleet') ?? false,
-      enableMonitoring: app.node.tryGetContext('embedding:enableMonitoring') ?? true,
-      enableAutoScaling: app.node.tryGetContext('embedding:enableAutoScaling') ?? true,
-    },
     aiConfig: {
-      // AI設定（必要に応じて拡張）
-      enableBedrock: true,
+      bedrock: {
+        enabled: true,
+        models: {
+          titanEmbeddings: true,
+        },
+        monitoring: {
+          cloudWatchMetrics: true,
+        },
+      },
+      embedding: {
+        enabled: true,
+        model: app.node.tryGetContext('embedding:bedrock:modelId') ?? 'amazon.titan-embed-text-v1',
+        dimensions: 1536,
+      },
+      model: {
+        enabled: false,
+        customModels: false,
+      },
     },
-    // Bedrock設定は直接プロパティとして指定
-    bedrockRegion: app.node.tryGetContext('embedding:bedrock:region') ?? 'us-east-1',
-    bedrockModelId: app.node.tryGetContext('embedding:bedrock:modelId') ?? 'amazon.nova-pro-v1:0',
     projectName,
     environment,
     // FSx統合設定（パフォーマンス向上）
@@ -141,21 +112,12 @@ try {
     },
   });
 
-  embeddingStack.addDependency(dataStack);
-  
   console.log(`✅ スタック "${embeddingStack.stackName}" を正常に初期化しました`);
   
 } catch (error) {
-  console.error('❌ EmbeddingStack初期化エラー:', error);
-  console.error('⚠️  EmbeddingStackはオプションです。他のスタックは正常にデプロイされます。');
+  console.error('❌ スタック初期化エラー:', error);
+  process.exit(1);
 }
-
-console.log('');
-console.log('📦 デプロイ対象スタック:');
-console.log('  1. NetworkingStack - VPC・サブネット・Cognito VPC Endpoint');
-console.log('  2. SecurityStack - IAM・KMS・WAF');
-console.log('  3. DataStack - S3・DynamoDB・OpenSearch');
-console.log('  4. EmbeddingStack - Embedding処理（オプション）');
 
 // CDK合成実行
 try {

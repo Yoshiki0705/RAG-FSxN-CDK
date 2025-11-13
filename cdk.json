@@ -59,22 +59,6 @@
     "@aws-cdk/aws-rds:auroraClusterChangeScopeOfInstanceParameterGroupWithEachParameters": true,
     "@aws-cdk/aws-appsync:useArnForSourceApiAssociationIdentifier": true,
     "@aws-cdk/aws-rds:preventRenderingDeprecatedCredentials": true,
-    "@aws-cdk/aws-codepipeline-actions:useNewDefaultBranchForSourceAction": true,
-    
-    "//": "=== セキュリティ・ネットワーク強化オプション機能 ===",
-    "//existingVpcId": "既存VPC IDを指定（デフォルト: null = 新規VPC作成）",
-    "//existingVpcId-note": "既存VPCを使用する場合、VPC IDを指定します。nullの場合は新規VPCを作成します",
-    "existingVpcId": null,
-    
-    "//cognitoPrivateEndpoint": "Cognito User PoolsへのVPC Private接続を有効化（デフォルト: false）",
-    "//cognitoPrivateEndpoint-note": "有効化すると、Lambda関数が自動的にVPC内に配置され、VPC Endpoint経由でCognitoに接続します",
-    "//cognitoPrivateEndpoint-cost": "追加コスト: VPC Endpoint料金（約$7.30/月）+ Lambda ENI料金",
-    "cognitoPrivateEndpoint": false,
-    
-    "//": "=== 将来のオプション機能（未実装） ===",
-    "//useBedrockAgent": "Bedrock Agentを使用した権限認識型RAG（デフォルト: false）",
-    "//useBedrockGuardrails": "Bedrock Guardrailsによるコンテンツフィルタリング（デフォルト: false）",
-    "useBedrockAgent": false,
-    "useBedrockGuardrails": false
+    "@aws-cdk/aws-codepipeline-actions:useNewDefaultBranchForSourceAction": true
   }
 }
